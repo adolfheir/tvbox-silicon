@@ -14,6 +14,7 @@ enum QALaunch {
         case "search": .search
         case "sites": .sites
         case "favorites": .favorites
+        case "history": .history
         case "settings": .settings
         case "more": .more
         default: nil
@@ -25,6 +26,7 @@ enum QALaunch {
 
     @MainActor static func start(_ store: Store) async {
         guard section != nil || page != nil else { return }
+        if UserDefaults.standard.bool(forKey: "qaResetHistory") { store.playbackHistory.clear() }
         if let subscription = UserDefaults.standard.string(forKey: "qaSubscription") { await store.importSubscription(address: subscription) }
         else if store.subscription == nil { await store.importSubscription() }
         if QASweep.enabled, let config = store.subscription { Task.detached(priority: .utility) { await QASweep.run(config) } }
@@ -39,20 +41,32 @@ enum QALaunch {
             do {
                 guard let site = config.sites.first(where: { $0.key == key }) else { throw QASweep.Failure(message: "Source not found") }
                 let client = CatalogClient(site: site, origin: config.origin, jarURL: config.spiderURL).with(parses: config.parseServices)
-                let home = try await QASweep.limit(60) { try await client.home() }
-                var videos = home.videos
-                if videos.isEmpty, let category = home.categories.first {
-                    videos = try await QASweep.limit(60) { try await client.list(category: category.id, query: "", page: 1).videos }
+                var videos: [Video]
+                if let query = UserDefaults.standard.string(forKey: "qaVideoQuery") {
+                    videos = try await QASweep.limit(60) { try await client.list(category: nil, query: query, page: 1).videos }
+                } else {
+                    let home = try await QASweep.limit(60) { try await client.home() }
+                    videos = home.videos
+                    if videos.isEmpty, let category = home.categories.first {
+                        videos = try await QASweep.limit(60) { try await client.list(category: category.id, query: "", page: 1).videos }
+                    }
                 }
                 guard let first = videos.first else { throw QASweep.Failure(message: "No videos") }
                 let video = try await QASweep.limit(60) { try await client.detail(first.id) }
-                guard let episode = video.episodes.first else { throw QASweep.Failure(message: "No episodes") }
-                store.playing = try await QASweep.limit(60) { try await client.playback(episode) }
+                let selectedEpisode = UserDefaults.standard.string(forKey: "qaEpisodeName")
+                guard let episode = selectedEpisode.flatMap({ name in video.episodes.first { $0.name == name } })
+                    ?? (selectedEpisode == nil ? video.episodes.first : nil) else { throw QASweep.Failure(message: "No episodes") }
+                let channel = try await QASweep.limit(60) { try await client.playback(episode) }
+                let start = UserDefaults.standard.object(forKey: "qaStartAt") == nil ? nil : UserDefaults.standard.double(forKey: "qaStartAt")
+                store.playing = store.catalogChannel(channel, video: video, episode: episode, client: client, resumePosition: start)
             } catch {
                 store.error = error.localizedDescription
                 let file = URL.cachesDirectory.appending(path: "qa-playback.json")
                 try? JSONSerialization.data(withJSONObject: ["source": key, "stage": "resolve", "error": error.localizedDescription]).write(to: file, options: .atomic)
             }
+        }
+        if page == "resume-last", let entry = store.playbackHistory.entries.first {
+            await store.resumeHistory(entry)
         }
         if page == "player", let url = URL(string: "http://127.0.0.1:8765/clip.mp4") {
             store.playing = Channel(name: "测试频道 01", url: url)

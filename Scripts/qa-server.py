@@ -12,6 +12,7 @@ from urllib.parse import parse_qs, urlparse
 root = pathlib.Path(__file__).resolve().parents[1]
 parser = argparse.ArgumentParser()
 parser.add_argument('--port', type=int, default=8765)
+parser.add_argument('--media', type=pathlib.Path, default=root/'build/player-test.mp4')
 args = parser.parse_args()
 base = f'http://127.0.0.1:{args.port}'
 lock = threading.Lock()
@@ -65,7 +66,7 @@ class Handler(BaseHTTPRequestHandler):
         if path == '/poster.png':
             return self.send((root/'Design/yingxia-icon.png').read_bytes(),mime='image/png')
         if path == '/clip.mp4':
-            media=root/'build/player-test.mp4'
+            media=args.media
             if not media.exists(): return self.send('Generate clip with Scripts/test-player.sh first',404,'text/plain')
             size=media.stat().st_size
             match=re.match(r'bytes=(\d+)-(\d*)',self.headers.get('Range',''))
@@ -84,6 +85,13 @@ class Handler(BaseHTTPRequestHandler):
                 except (BrokenPipeError,ConnectionResetError):pass
             return
         if path == '/missing.mp4': return self.send('Not found',404,'text/plain')
+        if path == '/api/v2/search/anime':
+            return self.send({'animes':[{'bangumiId':90001,'animeTitle':'测试影片 1','typeDescription':'QA fixture'}]})
+        if path == '/api/v2/bangumi/90001':
+            return self.send({'bangumi':{'episodes':[{'episodeId':900010001,'episodeTitle':'第1话'},
+                                                   {'episodeId':900010002,'episodeTitle':'第2话'}]}})
+        if path == '/api/v2/comment/900010001':
+            return self.send({'comments':[{'p':f'{time},1,16777215,qa','m':'Automatic match QA fixture'} for time in [1,30,90]]})
         if path == '/failure': return self.send('Service unavailable',503,'text/plain')
         if path in ['/api','/slow','/empty','/index']:
             if path=='/slow':time.sleep(2)

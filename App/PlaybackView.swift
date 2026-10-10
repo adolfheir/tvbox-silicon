@@ -4,10 +4,69 @@ import TVCore
 
 @MainActor @Observable final class PlaybackSession {
     let player = AVPlayer()
+    let danmaku = DanmakuModel()
+    private var mediaTimeObserver: Any?
+    private var historyContext: PlaybackHistoryContext?
+    private var pendingResume: Double?
+    private var restoringPosition = false
+    private(set) var restoredPosition: Double?
+    private(set) var requestedResumePosition: Double?
     var error: String?
     var loading = true
     var looping = false
     var buffering = false
+    private(set) var skipSettings = EpisodeSkipSettings()
+    private(set) var position: Double = 0
+    private(set) var duration: Double = 0
+    private var skipScope: String?
+    private var skipPass = EpisodeSkipPass()
+    private var editingSkip = false
+    private var resumeAfterEditing = false
+    private var seekingSegment = false
+
+    func beginEditingSkip() {
+        editingSkip = true
+        resumeAfterEditing = player.rate > 0
+        player.pause()
+    }
+
+    func endEditingSkip() {
+        editingSkip = false
+        if resumeAfterEditing { player.play() }
+        resumeAfterEditing = false
+    }
+
+    func applySkipSettings(_ settings: EpisodeSkipSettings) {
+        guard let skipScope, !settings.enabled || settings.validationError(duration: duration) == nil else { return }
+        settings.save(scope: skipScope)
+        skipSettings = settings
+        skipPass = EpisodeSkipPass()
+    }
+
+    private func updateSkipping(_ item: AVPlayerItem) {
+        let time = player.currentTime().seconds
+        position = time.isFinite ? max(0, time) : 0
+        let length = item.duration.seconds
+        duration = length.isFinite ? max(0, length) : 0
+        guard skipScope != nil, !editingSkip, !seekingSegment, pendingResume == nil, !restoringPosition,
+              item.status == .readyToPlay else { return }
+        var pass = skipPass
+        guard let target = pass.target(time: time, duration: length, playing: player.rate > 0, settings: skipSettings) else {
+            skipPass = pass
+            return
+        }
+        guard item.seekableTimeRanges.contains(where: { CMTimeRangeContainsTime($0.timeRangeValue, time: CMTime(seconds: target, preferredTimescale: 600)) }) else { return }
+        skipPass = pass
+        seekingSegment = true
+        let activeGeneration = generation
+        Diagnostics.shared.record(.info, "player", "skip segment from=\(Int(time)) to=\(Int(target))")
+        player.seek(to: CMTime(seconds: target, preferredTimescale: 600), toleranceBefore: .zero, toleranceAfter: .zero) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                guard let self, self.generation == activeGeneration else { return }
+                self.seekingSegment = false
+            }
+        }
+    }
     /// Download state while connecting or buffering, sampled once a second from AVFoundation's logs.
     struct Transfer {
         var received: Int64 = 0
@@ -29,6 +88,7 @@ import TVCore
         if player.timeControlStatus == .paused {
             if let item = player.currentItem, item.duration.seconds.isFinite,
                player.currentTime().seconds >= item.duration.seconds - 0.1 {
+                skipPass = EpisodeSkipPass()
                 player.seek(to: .zero)
             }
             player.play()
@@ -59,6 +119,20 @@ import TVCore
     #endif
     func start(_ channel: Channel) {
         stop(); error = nil; loading = true
+        historyContext = channel.historyContext
+        requestedResumePosition = channel.resumePosition
+        pendingResume = channel.resumePosition.flatMap { $0.isFinite && $0 > 0 ? $0 : nil }
+        #if !os(tvOS)
+        #if DEBUG
+        if UserDefaults.standard.string(forKey: "qaDanmakuTitle") == nil && !UserDefaults.standard.bool(forKey: "qaDanmakuFile") {
+            danmaku.startAutomatic(channel.historyContext)
+        }
+        #else
+        danmaku.startAutomatic(channel.historyContext)
+        #endif
+        #endif
+        skipScope = channel.skipScope
+        skipSettings = channel.skipScope.map { EpisodeSkipSettings.load(scope: $0) } ?? EpisodeSkipSettings()
         let activeGeneration = generation
         Diagnostics.shared.record(.info, "player", "start name=\(channel.name) group=\(channel.group) url=\(channel.url.absoluteString) headers=\(channel.headers.keys.sorted().joined(separator: ","))")
         preparation = Task { [weak self] in
@@ -98,7 +172,8 @@ import TVCore
             Task { @MainActor [weak self] in
                 guard let self, self.generation == activeGeneration else { return }
                 if status == .readyToPlay {
-                    self.loading = false
+                    self.loading = self.pendingResume != nil
+                    self.restorePositionIfNeeded(item)
                     Diagnostics.shared.record(.info, "player", "ready host=\(self.transfer.host ?? channel.url.host() ?? "-")")
                 }
                 if status == .failed {
@@ -118,16 +193,21 @@ import TVCore
         }
         endObserver = NotificationCenter.default.addObserver(forName: .AVPlayerItemDidPlayToEndTime, object: item, queue: .main) { [weak self] _ in
             Task { @MainActor [weak self] in
-                guard let self, self.generation == activeGeneration, self.looping else { return }
+                guard let self, self.generation == activeGeneration else { return }
+                self.saveHistory(completed: true)
+                guard self.looping else { return }
+                self.skipPass = EpisodeSkipPass()
                 self.player.seek(to: .zero)
                 self.player.play()
             }
         }
         timeObservation = player.observe(\.timeControlStatus, options: [.initial, .new]) { [weak self] player, _ in
             let waiting = player.timeControlStatus == .waitingToPlayAtSpecifiedRate
+            let paused = player.timeControlStatus == .paused
             Task { @MainActor [weak self] in
                 guard let self, self.generation == activeGeneration else { return }
                 self.buffering = waiting
+                if paused { self.saveHistory() }
             }
         }
         player.preventsDisplaySleepDuringVideoPlayback = true
@@ -135,7 +215,13 @@ import TVCore
         player.isMuted = UserDefaults.standard.bool(forKey: "qaMute")
         #endif
         player.replaceCurrentItem(with: item)
-        player.play()
+        mediaTimeObserver = player.addPeriodicTimeObserver(forInterval: CMTime(seconds: 1.0 / 30, preferredTimescale: 600), queue: .main) { [weak self] time in
+            Task { @MainActor [weak self] in
+                guard let self, self.generation == activeGeneration, time.seconds.isFinite else { return }
+                self.danmaku.time = time.seconds
+            }
+        }
+        if pendingResume == nil { player.play() }
         let origin = channel.url.host()
         sampler = Task { [weak self] in
             var history: [(date: Date, bytes: Int64)] = []
@@ -150,6 +236,10 @@ import TVCore
     private func sample(_ history: inout [(date: Date, bytes: Int64)], tick: Int, origin: String?, generation activeGeneration: UUID) -> Bool {
         guard generation == activeGeneration else { return false }
         guard let item = player.currentItem else { return true }
+        danmaku.videoSize = item.presentationSize
+        restorePositionIfNeeded(item)
+        updateSkipping(item)
+        if tick % 5 == 0 { saveHistory() }
         let events = item.accessLog()?.events ?? []
         let now = Date()
         var next = Transfer(received: events.reduce(Int64(0)) { $0 + max(0, $1.numberOfBytesTransferred) })
@@ -187,11 +277,17 @@ import TVCore
         }
         transfer = next
         #if DEBUG
-        if QALaunch.page?.hasPrefix("play-source:") == true {
+        if QALaunch.page?.hasPrefix("play-source:") == true || QALaunch.page == "resume-last" || QALaunch.page == "history-player" {
             let seconds = player.currentTime().seconds
             let report: [String: Any] = ["stage": "playback", "seconds": seconds.isFinite ? seconds : 0,
                 "rate": player.rate, "ready": item.status == .readyToPlay, "receivedBytes": next.received,
-                "host": next.host ?? "", "error": error ?? "", "buffering": buffering]
+                "host": next.host ?? "", "error": error ?? "", "buffering": buffering,
+                "danmakuCount": danmaku.comments.count, "danmakuTrack": danmaku.track,
+                "danmakuAutomaticState": danmaku.automaticState,
+                "danmakuTime": danmaku.time, "danmakuOffset": danmaku.offset, "danmakuEnabled": danmaku.enabled,
+                "duration": duration, "historyID": historyContext?.id ?? "", "requestedResumePosition": requestedResumePosition ?? 0,
+                "restoredPosition": restoredPosition ?? 0, "restoringPosition": restoringPosition || pendingResume != nil,
+                "skipEnabled": skipSettings.enabled, "introEnd": skipSettings.introEnd, "outroLength": skipSettings.outroLength]
             try? JSONSerialization.data(withJSONObject: report, options: [.sortedKeys]).write(
                 to: URL.cachesDirectory.appending(path: "qa-playback.json"), options: .atomic)
         }
@@ -212,14 +308,22 @@ import TVCore
         return text
     }
     func stop() {
+        saveHistory()
         if player.currentItem != nil {
             let seconds = player.currentTime().seconds
             Diagnostics.shared.record(.info, "player", "stop at=\(seconds.isFinite ? Int(seconds) : -1)s")
         }
         generation = UUID()
+        if let mediaTimeObserver { player.removeTimeObserver(mediaTimeObserver) }
+        mediaTimeObserver = nil
+        danmaku.clear()
         preparation?.cancel(); preparation = nil
         sampler?.cancel(); sampler = nil
         transfer = Transfer()
+        skipScope = nil; skipSettings = EpisodeSkipSettings(); skipPass = EpisodeSkipPass()
+        position = 0; duration = 0; editingSkip = false; resumeAfterEditing = false; seekingSegment = false
+        historyContext = nil; pendingResume = nil; restoringPosition = false
+        restoredPosition = nil; requestedResumePosition = nil
         #if os(macOS)
         if let proxy { Task { await proxy.stop() } }; proxy = nil
         #endif
@@ -231,6 +335,35 @@ import TVCore
         if let failureObserver { NotificationCenter.default.removeObserver(failureObserver) }
         failureObserver = nil
         player.pause(); player.replaceCurrentItem(with: nil)
+    }
+
+    func saveHistory(completed: Bool = false) {
+        guard let context = historyContext, let item = player.currentItem, item.status == .readyToPlay,
+              pendingResume == nil, !restoringPosition, !seekingSegment else { return }
+        let length = item.duration.seconds
+        let time = completed && length.isFinite ? length : player.currentTime().seconds
+        PlaybackHistory.shared.record(context, position: time, duration: length.isFinite ? length : 0)
+    }
+
+    private func restorePositionIfNeeded(_ item: AVPlayerItem) {
+        guard let requested = pendingResume, !restoringPosition, item.status == .readyToPlay,
+              let target = PlaybackHistoryEntry.resumeTarget(requested, duration: item.duration.seconds) else { return }
+        restoringPosition = true
+        let activeGeneration = generation
+        player.seek(to: CMTime(seconds: target, preferredTimescale: 600), toleranceBefore: .zero, toleranceAfter: .zero) { [weak self] finished in
+            Task { @MainActor [weak self] in
+                guard let self, self.generation == activeGeneration else { return }
+                self.restoringPosition = false; self.pendingResume = nil; self.loading = false
+                guard finished else {
+                    self.error = L10n.text("The player could not restore the saved position. Try again.")
+                    return
+                }
+                self.restoredPosition = self.player.currentTime().seconds
+                Diagnostics.shared.record(.info, "player", "history resume requested=\(requested) restored=\(self.restoredPosition ?? -1)")
+                self.player.play()
+                self.saveHistory()
+            }
+        }
     }
 }
 
