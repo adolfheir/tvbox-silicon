@@ -6,6 +6,7 @@
 #include <pthread.h>
 #include <os/proc.h>
 #include <TargetConditionals.h>
+#include "RuntimeMemoryBudget.h"
 
 // Called from the app's plugin worker threads (several at once for searches), never the UI thread.
 // Only VM startup needs a lock; each later call attaches its own thread.
@@ -19,22 +20,6 @@ static char *failure(const char *message) {
     return strdup([[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding].UTF8String);
 }
 char *TVAppleRuntimeRequest(const char *resourcePath, const char *requestJSON);
-
-// The Java heap is sized from what this process may still use, not fixed: iOS kills an app over
-// its memory limit, and the limit differs by device. Native code (interpreter, plugins' guard
-// libraries, video) needs the rest, so the heap gets about a third, between 384 MB and 1 GB.
-static NSString *heapLimit(void) {
-    unsigned long long available = 0;
-#if (TARGET_OS_IOS || TARGET_OS_TV) && !TARGET_OS_SIMULATOR
-    // Simulators report no limit; they fall back to a share of the Mac's memory below.
-    if (@available(iOS 13.0, tvOS 13.0, *)) available = os_proc_available_memory();
-#endif
-    if (available == 0) available = NSProcessInfo.processInfo.physicalMemory / 4;
-    unsigned long long megabytes = available / 3 / (1024 * 1024);
-    if (megabytes < 384) megabytes = 384;
-    if (megabytes > 1024) megabytes = 1024;
-    return [NSString stringWithFormat:@"-Xmx%llum", megabytes];
-}
 
 // On a memory warning, idle plugin runtimes and sources are closed and the freed heap returned.
 static void watchMemoryPressure(const char *resourcePath) {
@@ -68,10 +53,17 @@ char *TVAppleRuntimeRequest(const char *resourcePath, const char *requestJSON) {
             for (NSString *file in [[[NSFileManager defaultManager] contentsOfDirectoryAtPath:[host stringByAppendingPathComponent:@"lib"] error:NULL] sortedArrayUsingSelector:@selector(compare:)]) {
                 if ([file.pathExtension isEqualToString:@"jar"]) classpath = [classpath stringByAppendingFormat:@":%@/lib/%@", host, file];
             }
-            NSString *heap = heapLimit();
-            fprintf(stderr, "Java heap limit %s\n", heap.UTF8String);
+            TVRuntimeMemoryBudget budget = TVCurrentRuntimeMemoryBudget();
+            fprintf(stderr, "Java memory budget available=%lluMiB heap=%uMiB classSpace=%uMiB\n",
+                    (unsigned long long)(budget.availableBytes / TV_MIB), budget.heapMB, budget.classSpaceMB);
+            if (budget.availableBytes < 256 * TV_MIB) {
+                pthread_mutex_unlock(&startLock);
+                return failure("Not enough memory to start a Java source. Close other sources and retry.");
+            }
+            NSString *heap = [NSString stringWithFormat:@"-Xmx%um", budget.heapMB];
+            NSString *classes = [NSString stringWithFormat:@"-XX:CompressedClassSpaceSize=%um", budget.classSpaceMB];
             // Shrink the committed heap after collections, so memory freed in Java goes back to iOS.
-            NSArray<NSString *> *arguments = @[heap, @"-Xms32m", @"-Xss2m", @"-XX:+UseSerialGC", @"-XX:MinHeapFreeRatio=10", @"-XX:MaxHeapFreeRatio=30", @"-XX:+DisableAttachMechanism", @"-Xrs",
+            NSArray<NSString *> *arguments = @[heap, classes, @"-Xms32m", @"-Xss2m", @"-XX:+UseSerialGC", @"-XX:MinHeapFreeRatio=10", @"-XX:MaxHeapFreeRatio=30", @"-XX:+DisableAttachMechanism", @"-Xrs",
                 @"--add-opens=java.base/java.lang=ALL-UNNAMED", @"--add-opens=java.base/sun.net.www.protocol.jar=ALL-UNNAMED",
                 @"--enable-native-access=ALL-UNNAMED",
                 @"-Dorg.slf4j.simpleLogger.defaultLogLevel=error",

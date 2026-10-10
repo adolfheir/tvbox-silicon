@@ -2,7 +2,7 @@ import SwiftUI
 import TVCore
 
 @MainActor @Observable final class Store {
-    static let defaultURL = "https://raw.githubusercontent.com/adolfheir/tvbox/master/fty.json"
+    static let defaultURL = "https://cdn.jsdelivr.net/gh/adolfheir/tvbox@master/fty.json"
     let searchModel = SearchModel()
     let recommendationModel = RecommendationModel()
     var subscription: Subscription?
@@ -62,6 +62,7 @@ import TVCore
             let value = try await http.subscription(url)
             try Self.saveSubscription(JSONEncoder().encode(value))
             defaults.set(url.absoluteString, forKey: "subscriptionAddress")
+            subscriptionAddress = url.absoluteString
             searchModel.reset()
             recommendationModel.reset()
             subscription = value

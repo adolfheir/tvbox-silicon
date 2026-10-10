@@ -399,3 +399,58 @@
 "The source returned a web page instead of data. It may be offline or blocking apps." = "ソースがデータではなくウェブページを返しました。停止しているか、アプリからのアクセスをブロックしている可能性があります。";
 "This subscription's plugin package doesn't include %@. Ask the subscription's maintainer or use another source." = "このサブスクリプションのプラグインパッケージには %@ が含まれていません。配信元に問い合わせるか、別のソースを使ってください。";
 "The plugin download returned a web page instead of a plugin. Its host may be offline." = "プラグインの代わりにウェブページがダウンロードされました。配信元が停止している可能性があります。";
+
+// Optional player danmaku.
+"Danmaku" = "弾幕";
+"Show Danmaku" = "弾幕を表示";
+"Loaded %lld comments" = "%lld 件の弾幕を読み込みました";
+"Opacity" = "不透明度";
+"Text Size" = "文字サイズ";
+"Time Offset: %@ s" = "時間オフセット：%@ 秒";
+"A positive offset shows comments later. Playback controls stay available." = "正の値で弾幕を遅らせます。再生操作は引き続き使用できます。";
+"Clear Danmaku" = "弾幕をクリア";
+"Video title" = "作品名";
+"Back to search results" = "検索結果に戻る";
+"No danmaku found. Try another title or server." = "弾幕がありません。別の作品名やサーバーをお試しください。";
+"Find Danmaku" = "弾幕を検索";
+"Search sends only the title to the selected danmaku service. Choose the correct season and episode; some videos have no comments." = "検索時は作品名のみを選択した弾幕サービスに送信します。正しいシーズンと話数を選んでください。弾幕がない作品もあります。";
+"Danmaku server URL" = "弾幕サーバーURL";
+"Danmaku Service" = "弾幕サービス";
+"Uses a public Dandanplay-compatible service. You can enter your own danmu_api server. Availability depends on the service." = "公開のDandanplay互換サービスを使用します。独自のdanmu_apiサーバーも指定できます。利用可否はサービスに依存します。";
+"The danmaku file is too large." = "弾幕ファイルが大きすぎます。";
+"The service did not return a supported danmaku list." = "対応する弾幕リストが返されませんでした。";
+"Enter the danmaku server base URL, without a query or fragment." = "クエリやフラグメントを含まない弾幕サーバーのベースURLを入力してください。";
+"This danmaku server requires authorization. Choose a compatible public or self-hosted server." = "この弾幕サーバーは認証が必要です。対応する公開サーバーか独自サーバーを選んでください。";
+"The danmaku server could not complete this request. Try another server." = "弾幕のリクエストを完了できませんでした。別のサーバーをお試しください。";
+
+"Wait for the video duration. Live streams cannot use skipping." = "動画の長さを読み込み中です。ライブ配信では使用できません。";
+
+"Skipping is available for videos at least two minutes long." = "2分以上の動画で使用できます。";
+
+"Enter a valid time such as 01:30." = "01:30 のような有効な時間を入力してください。";
+
+"The intro cannot exceed five minutes or a quarter of the video." = "オープニングは5分以内、かつ動画の4分の1以内にしてください。";
+
+"The outro cannot exceed ten minutes or a quarter of the video." = "エンディングは10分以内、かつ動画の4分の1以内にしてください。";
+
+"Keep at least 60% of the video as main content." = "動画の60%以上を本編として残してください。";
+
+"Automatically skip intro and outro" = "オープニングとエンディングを自動スキップ";
+
+"Applies to episodes of this title from this source. The outro is remembered as time remaining." = "この配信元の同じ作品の各話に適用します。エンディングは残り時間で記憶します。";
+
+"Intro ends at" = "オープニング終了位置";
+
+"Outro starts at" = "エンディング開始位置";
+
+"Use current position (%@)" = "現在の再生位置を使用（%@）";
+
+"Leave a time empty to keep that segment. Format: minutes:seconds." = "空欄にするとその区間を再生します。形式：分:秒。";
+
+"Reset intro and outro" = "スキップ設定をリセット";
+
+"Skip intro / outro" = "オープニング・エンディングをスキップ";
+
+"Save" = "保存";
+"Import Danmaku File" = "弾幕ファイルを読み込む";
+"Import Bilibili XML or Dandanplay JSON from Files. Imported comments do not require a network connection." = "ファイルからBilibili XMLまたはDandanplay JSONを読み込みます。読み込んだ弾幕はオフラインで表示できます。";

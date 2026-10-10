@@ -556,7 +556,8 @@ struct VideoDetailView: View {
                 pendingPlan = plan; pendingEpisode = episode; choosingQuality = true
             } else {
                 let resolved = try await client.with(parses: store.subscription?.parseServices ?? []).resolvePlayback(plan, choice: plan.choices[0])
-                store.playing = Channel(name: "\(video.name) · \(episode.name)", group: resolved.group, url: resolved.url, headers: resolved.headers)
+                store.playing = Channel(name: "\(video.name) · \(episode.name)", group: resolved.group, url: resolved.url, headers: resolved.headers,
+                                        skipScope: EpisodeSkipSettings.scope(origin: client.origin, source: client.site.key, video: video.id))
             }
         } catch { fail(episode, error) }
     }
@@ -565,7 +566,8 @@ struct VideoDetailView: View {
         defer { busy = false; pendingPlan = nil; pendingEpisode = nil; loadingEpisode = nil }
         do {
             let resolved = try await client.with(parses: store.subscription?.parseServices ?? []).resolvePlayback(plan, choice: choice)
-            store.playing = Channel(name: "\(video.name) · \(episode.name)", group: resolved.group, url: resolved.url, headers: resolved.headers)
+            store.playing = Channel(name: "\(video.name) · \(episode.name)", group: resolved.group, url: resolved.url, headers: resolved.headers,
+                                    skipScope: EpisodeSkipSettings.scope(origin: client.origin, source: client.site.key, video: video.id))
         } catch { fail(episode, error) }
     }
     private func fail(_ episode: Episode, _ error: Error) {

@@ -39,15 +39,22 @@ enum QALaunch {
             do {
                 guard let site = config.sites.first(where: { $0.key == key }) else { throw QASweep.Failure(message: "Source not found") }
                 let client = CatalogClient(site: site, origin: config.origin, jarURL: config.spiderURL).with(parses: config.parseServices)
-                let home = try await QASweep.limit(60) { try await client.home() }
-                var videos = home.videos
-                if videos.isEmpty, let category = home.categories.first {
-                    videos = try await QASweep.limit(60) { try await client.list(category: category.id, query: "", page: 1).videos }
+                var videos: [Video]
+                if let query = UserDefaults.standard.string(forKey: "qaVideoQuery") {
+                    videos = try await QASweep.limit(60) { try await client.list(category: nil, query: query, page: 1).videos }
+                } else {
+                    let home = try await QASweep.limit(60) { try await client.home() }
+                    videos = home.videos
+                    if videos.isEmpty, let category = home.categories.first {
+                        videos = try await QASweep.limit(60) { try await client.list(category: category.id, query: "", page: 1).videos }
+                    }
                 }
                 guard let first = videos.first else { throw QASweep.Failure(message: "No videos") }
                 let video = try await QASweep.limit(60) { try await client.detail(first.id) }
                 guard let episode = video.episodes.first else { throw QASweep.Failure(message: "No episodes") }
-                store.playing = try await QASweep.limit(60) { try await client.playback(episode) }
+                let channel = try await QASweep.limit(60) { try await client.playback(episode) }
+                store.playing = Channel(name: "\(video.name) · \(episode.name)", group: channel.group, url: channel.url, headers: channel.headers,
+                                        skipScope: EpisodeSkipSettings.scope(origin: config.origin, source: site.key, video: video.id))
             } catch {
                 store.error = error.localizedDescription
                 let file = URL.cachesDirectory.appending(path: "qa-playback.json")

@@ -237,9 +237,11 @@ public struct Channel: Identifiable, Codable, Hashable, Sendable {
     public let url: URL
     public let logo: URL?
     public let headers: [String: String]
+    /// Present for catalog videos; live channels never share episode-skip preferences.
+    public let skipScope: String?
     public var displayGroup: String { group.isEmpty ? L10n.text("Ungrouped") : group }
     public var id: String { group + "|" + name + "|" + url.absoluteString }
-    public init(name: String, group: String = "", url: URL, logo: URL? = nil, headers: [String: String] = [:]) {
-        self.name = name; self.group = group; self.url = url; self.logo = logo; self.headers = headers
+    public init(name: String, group: String = "", url: URL, logo: URL? = nil, headers: [String: String] = [:], skipScope: String? = nil) {
+        self.name = name; self.group = group; self.url = url; self.logo = logo; self.headers = headers; self.skipScope = skipScope
     }
 }

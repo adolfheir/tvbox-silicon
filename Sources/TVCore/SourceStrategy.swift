@@ -4,27 +4,38 @@ import Foundation
 ///
 /// Subscriptions often list the same site several times, once per plugin type and decoration
 /// ("低端影视", "影视 | 低端影视[js]", "🛣┃低端┃影视"). Those sources form one channel. Only sources
-/// this platform can run are kept. Channels are ordered by their cheapest runtime (`SourceRuntime`),
+/// this platform can run are kept. Music, audio and live/sports channels follow the other channels.
+/// Within each group, channels are ordered by their cheapest runtime (`SourceRuntime`),
 /// then by first appearance in the subscription; inside a channel, sources are ordered by runtime and
 /// then subscription order, so a channel reads JSON a, JSON b, Python a, Python b, JS a, ..., JAR b.
 public enum SourceStrategy {
     public static func arrange(_ sites: [Site], where available: (Site) -> Bool) -> [Site] {
         let usable = sites.filter(available)
-        var channels: [String: (rank: Int, first: Int)] = [:]
+        var channels: [String: (content: Int, rank: Int, first: Int)] = [:]
         let keys = usable.map { channel(of: $0.name) }
         for (index, site) in usable.enumerated() {
             let key = keys[index]
             let rank = site.preferredRuntime.rawValue
-            if let known = channels[key] { channels[key] = (min(known.rank, rank), known.first) }
-            else { channels[key] = (rank, index) }
+            let content = contentPriority(site.name)
+            if let known = channels[key] { channels[key] = (min(known.content, content), min(known.rank, rank), known.first) }
+            else { channels[key] = (content, rank, index) }
         }
         return usable.indices.sorted { lhs, rhs in
             let left = channels[keys[lhs]]!, right = channels[keys[rhs]]!
+            if left.content != right.content { return left.content < right.content }
             if left.rank != right.rank { return left.rank < right.rank }
             if left.first != right.first { return left.first < right.first }
             let leftRuntime = usable[lhs].preferredRuntime.rawValue, rightRuntime = usable[rhs].preferredRuntime.rawValue
             return leftRuntime != rightRuntime ? leftRuntime < rightRuntime : lhs < rhs
         }.map { usable[$0] }
+    }
+
+    private static let secondaryContent = ["音乐", "电台", "广播", "听书", "有声", "小说", "演唱会", "直播", "体育", "看球", "回放"]
+    private static let secondaryEnglish = try! NSRegularExpression(pattern: "(?:^|[^a-z0-9])(?:mv|music|radio|live|sports?|audiobooks?)(?:$|[^a-z0-9])")
+    private static func contentPriority(_ name: String) -> Int {
+        let text = name.precomposedStringWithCompatibilityMapping.lowercased()
+        if secondaryContent.contains(where: text.contains) { return 1 }
+        return secondaryEnglish.firstMatch(in: text, range: NSRange(text.startIndex..., in: text)) == nil ? 0 : 1
     }
 
     /// A channel identity for a source name: decorations, plugin tags, and generic words removed.
