@@ -59,39 +59,61 @@ struct RootView: View {
     }
 
     #if !os(macOS)
-    private var platformTabs: some View {
+    @ViewBuilder private var platformTabs: some View {
         @Bindable var store = store
-        return TabView(selection: $store.section) {
-                ForEach(tabs) { item in
-                    Tab(item.title, systemImage: item.icon, value: item) {
-                        if item == .more {
-                            NavigationStack(path: $morePath) {
-                                content(.more).routeDestinations()
-                                    .navigationDestination(for: AppSection.self) { destination in
-                                        if destination == .favorites { FavoritesView() }
-                                        else { SettingsView() }
-                                    }
-                            }
-                        } else { NavigationStack { content(item).tvDefaultControls().routeDestinations() } }
+        Group {
+            if #available(iOS 18.0, tvOS 18.0, *), !PlatformCompatibility.forceLegacyUI {
+                modernTabs
+            } else {
+                TabView(selection: $store.section) {
+                    ForEach(tabs) { item in
+                        tabPage(item)
+                            .tabItem { Label(item.title, systemImage: item.icon) }
+                            .tag(item)
                     }
                 }
             }
-            .tabViewStyle(.sidebarAdaptable)
-            #if os(iOS)
-            .tabBarMinimizeBehavior(.onScrollDown)
-            .onChange(of: store.section) { _, section in
-                if sizeClass == .compact && (section == .favorites || section == .settings) {
-                    moreSection = section; morePath = NavigationPath([section])
-                    store.section = .more
-                }
+        }
+        .adaptiveTabMinimization()
+        #if os(iOS)
+        .onChange(of: store.section) { _, section in
+            if sizeClass == .compact && (section == .favorites || section == .settings) {
+                moreSection = section; morePath = NavigationPath([section])
+                store.section = .more
             }
-            .onChange(of: sizeClass) { _, size in
-                if size != .compact && store.section == .more { store.section = morePath.isEmpty ? .settings : moreSection }
-                else if size == .compact && (store.section == .favorites || store.section == .settings) {
-                    moreSection = store.section; morePath = NavigationPath([store.section]); store.section = .more
-                }
+        }
+        .onChange(of: sizeClass) { _, size in
+            if size != .compact && store.section == .more { store.section = morePath.isEmpty ? .settings : moreSection }
+            else if size == .compact && (store.section == .favorites || store.section == .settings) {
+                moreSection = store.section; morePath = NavigationPath([store.section]); store.section = .more
             }
-            #endif
+        }
+        #endif
+    }
+
+    @available(iOS 18.0, tvOS 18.0, *)
+    private var modernTabs: some View {
+        @Bindable var store = store
+        return TabView(selection: $store.section) {
+            ForEach(tabs) { item in
+                Tab(item.title, systemImage: item.icon, value: item) { tabPage(item) }
+            }
+        }
+        .tabViewStyle(.sidebarAdaptable)
+    }
+
+    @ViewBuilder private func tabPage(_ item: AppSection) -> some View {
+        if item == .more {
+            NavigationStack(path: $morePath) {
+                content(.more).routeDestinations()
+                    .navigationDestination(for: AppSection.self) { destination in
+                        if destination == .favorites { FavoritesView() }
+                        else { SettingsView() }
+                    }
+            }
+        } else {
+            NavigationStack { content(item).tvDefaultControls().routeDestinations() }
+        }
     }
     #endif
 

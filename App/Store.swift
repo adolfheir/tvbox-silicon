@@ -2,7 +2,7 @@ import SwiftUI
 import TVCore
 
 @MainActor @Observable final class Store {
-    static let defaultURL = "https://raw.githubusercontent.com/qist/tvbox/master/fty.json"
+    static let defaultURL = "https://raw.githubusercontent.com/adolfheir/tvbox/master/fty.json"
     let searchModel = SearchModel()
     let recommendationModel = RecommendationModel()
     var subscription: Subscription?

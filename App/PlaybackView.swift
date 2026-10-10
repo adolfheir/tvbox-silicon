@@ -131,6 +131,9 @@ import TVCore
             }
         }
         player.preventsDisplaySleepDuringVideoPlayback = true
+        #if DEBUG
+        player.isMuted = UserDefaults.standard.bool(forKey: "qaMute")
+        #endif
         player.replaceCurrentItem(with: item)
         player.play()
         let origin = channel.url.host()
@@ -183,6 +186,16 @@ import TVCore
             next.failure = error.errorComment ?? "\(error.errorDomain) \(error.errorStatusCode)"
         }
         transfer = next
+        #if DEBUG
+        if QALaunch.page?.hasPrefix("play-source:") == true {
+            let seconds = player.currentTime().seconds
+            let report: [String: Any] = ["stage": "playback", "seconds": seconds.isFinite ? seconds : 0,
+                "rate": player.rate, "ready": item.status == .readyToPlay, "receivedBytes": next.received,
+                "host": next.host ?? "", "error": error ?? "", "buffering": buffering]
+            try? JSONSerialization.data(withJSONObject: report, options: [.sortedKeys]).write(
+                to: URL.cachesDirectory.appending(path: "qa-playback.json"), options: .atomic)
+        }
+        #endif
         if (loading || buffering) && tick % 5 == 0 {
             Diagnostics.shared.record(.debug, "player", "waiting host=\(next.host ?? "-") received=\(next.received) speed=\(Int(next.bytesPerSecond ?? -1)) required=\(Int(next.required ?? -1)) failure=\(next.failure ?? "-")")
         }

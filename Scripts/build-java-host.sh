@@ -1,7 +1,7 @@
 #!/bin/bash
 set -euo pipefail
 cd "$(dirname "$0")/.."
-JDK="${JAVA_HOME:-$(/usr/libexec/java_home -v 19)}"
+JDK="${JAVA_HOME:-$(/usr/libexec/java_home -v 17)}"
 MAVEN="${MAVEN_BIN:-$PWD/build/tools/apache-maven-3.9.9/bin/mvn}"
 if [ ! -x "$MAVEN" ]; then MAVEN="$(command -v mvn)"; fi
 "$MAVEN" -q -f Runtime/JavaHost/pom.xml package dependency:copy-dependencies -DoutputDirectory=target/lib

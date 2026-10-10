@@ -26,6 +26,7 @@
 		255C64CDFFBEE99EEEA11AA6 /* JNA-Apache2.txt in Resources */ = {isa = PBXBuildFile; fileRef = 8320284C7FB9590C44BA7102 /* JNA-Apache2.txt */; };
 		26A1C218652FCEEE9FC60E0F /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B442C75C212445F3786397ED /* SettingsView.swift */; };
 		277D741E2A86C06612A8034A /* CloudQRLoginView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E78573DE76BCF27CABBB20F3 /* CloudQRLoginView.swift */; };
+		288A429671F1244B2AC3C52E /* PlatformCompatibility.swift in Sources */ = {isa = PBXBuildFile; fileRef = 573FC066076ADFA3C865A2E1 /* PlatformCompatibility.swift */; };
 		2A79FAEF85C485687C54E766 /* OpenJDK-assembly-exception.txt in Resources */ = {isa = PBXBuildFile; fileRef = 4EF42E1957EFE569C0D2CF7D /* OpenJDK-assembly-exception.txt */; };
 		2EF2744DCA81AD6098398028 /* Keystone-LLVM.txt in Resources */ = {isa = PBXBuildFile; fileRef = 3A398E8AF0C7E4C94787F4B3 /* Keystone-LLVM.txt */; };
 		308A38681AA7812EF6DC4DFE /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = 335A7E05458DD9DA9AA04125 /* InfoPlist.strings */; };
@@ -42,6 +43,7 @@
 		3E782ECA07220E19F2EBDB7C /* ThirdPartyNotices.txt in Resources */ = {isa = PBXBuildFile; fileRef = A3012FC04D8DAD058B1A5168 /* ThirdPartyNotices.txt */; };
 		3F2E64D0FAA75B78026F115A /* RuntimeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2075419FEF0E1C161A31A9F0 /* RuntimeView.swift */; };
 		45ECD9E8EE6888748AC6D46E /* ThirdPartyNotices.txt in Resources */ = {isa = PBXBuildFile; fileRef = A3012FC04D8DAD058B1A5168 /* ThirdPartyNotices.txt */; };
+		4825F5E8E19D71E12F29693B /* PlatformCompatibility.swift in Sources */ = {isa = PBXBuildFile; fileRef = 573FC066076ADFA3C865A2E1 /* PlatformCompatibility.swift */; };
 		4861B86C4B02394CE7FF3DC0 /* PythonHost in Resources */ = {isa = PBXBuildFile; fileRef = 0558AED26E6028C2881DD044 /* PythonHost */; };
 		4C65106175D517040E98330B /* Store.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D1010816125FBC3792AF838 /* Store.swift */; };
 		4ECE8586E27A017017F26EDC /* DiscoveryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 181C983C0018A97F2A086298 /* DiscoveryView.swift */; };
@@ -79,6 +81,7 @@
 		97DFD3224F5E543A2BE6EDE0 /* PlayerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8CB1FA4BB4990588B428781E /* PlayerView.swift */; };
 		98A0CBECF27EE28054D96B01 /* Unicorn-GPL2.txt in Resources */ = {isa = PBXBuildFile; fileRef = B61DBAA2E8637B976A160D47 /* Unicorn-GPL2.txt */; };
 		9AD1AE51475719ED2DE59664 /* libffi.txt in Resources */ = {isa = PBXBuildFile; fileRef = 06D9469858E5C5A118DED875 /* libffi.txt */; };
+		9FA246EF9F7FE99169C52873 /* PlatformCompatibility.swift in Sources */ = {isa = PBXBuildFile; fileRef = 573FC066076ADFA3C865A2E1 /* PlatformCompatibility.swift */; };
 		A149AE9D183C5FB64D411761 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = ADB3063A14E368A71892DCEE /* Assets.xcassets */; };
 		A6CF37D3E8E26FD498A15CD1 /* JavaHost in Resources */ = {isa = PBXBuildFile; fileRef = F1B927CC6ECB2F8BDFB22287 /* JavaHost */; };
 		B0AA965C1DB5AA7CF03E9415 /* SitesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75124CC2471CF95C1FFB168A /* SitesView.swift */; };
@@ -121,7 +124,6 @@
 		0558AED26E6028C2881DD044 /* PythonHost */ = {isa = PBXFileReference; lastKnownFileType = folder; name = PythonHost; path = build/PythonHost; sourceTree = SOURCE_ROOT; };
 		06D9469858E5C5A118DED875 /* libffi.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = libffi.txt; sourceTree = "<group>"; };
 		084C8344E2997DB3ED8FE974 /* Keystone-GPL2.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = "Keystone-GPL2.txt"; sourceTree = "<group>"; };
-		0880682FDD3D3B413396938B /* tvbox */ = {isa = PBXFileReference; lastKnownFileType = folder; name = tvbox; path = .; sourceTree = SOURCE_ROOT; };
 		08B7C43C763200E67A22E365 /* Capstone-LLVM.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = "Capstone-LLVM.txt"; sourceTree = "<group>"; };
 		181C983C0018A97F2A086298 /* DiscoveryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiscoveryView.swift; sourceTree = "<group>"; };
 		2075419FEF0E1C161A31A9F0 /* RuntimeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RuntimeView.swift; sourceTree = "<group>"; };
@@ -130,6 +132,7 @@
 		3A398E8AF0C7E4C94787F4B3 /* Keystone-LLVM.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = "Keystone-LLVM.txt"; sourceTree = "<group>"; };
 		49F3577BBD5630331F34E84E /* OpenJDK-additional.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = "OpenJDK-additional.txt"; sourceTree = "<group>"; };
 		4EF42E1957EFE569C0D2CF7D /* OpenJDK-assembly-exception.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = "OpenJDK-assembly-exception.txt"; sourceTree = "<group>"; };
+		573FC066076ADFA3C865A2E1 /* PlatformCompatibility.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlatformCompatibility.swift; sourceTree = "<group>"; };
 		6876ACF1E9D9F80BBC4F22C4 /* PlaybackView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaybackView.swift; sourceTree = "<group>"; };
 		739A64FB51780D4314D2DDF8 /* GlassKit.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlassKit.swift; sourceTree = "<group>"; };
 		7459A3EBEF2E7C346B508738 /* LiveView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveView.swift; sourceTree = "<group>"; };
@@ -141,6 +144,7 @@
 		8B842401113B0BDFA7B532B4 /* QALaunch.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QALaunch.swift; sourceTree = "<group>"; };
 		8CB1FA4BB4990588B428781E /* PlayerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayerView.swift; sourceTree = "<group>"; };
 		995F5F0DB35FE66B4F90B4FF /* unidbg.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = unidbg.txt; sourceTree = "<group>"; };
+		9A132E907040B34C416C3146 /* tvbox-silicon */ = {isa = PBXFileReference; lastKnownFileType = folder; name = "tvbox-silicon"; path = .; sourceTree = SOURCE_ROOT; };
 		9B7E929CDDC1F085C6B55693 /* HomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeView.swift; sourceTree = "<group>"; };
 		9C911ACB6C027C8F9A096409 /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
 		A0E8559808CF7D11225EB30B /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
@@ -242,6 +246,7 @@
 				B44CBA0E5BBD1D129D5D64E3 /* HLSProxy.swift */,
 				9B7E929CDDC1F085C6B55693 /* HomeView.swift */,
 				7459A3EBEF2E7C346B508738 /* LiveView.swift */,
+				573FC066076ADFA3C865A2E1 /* PlatformCompatibility.swift */,
 				6876ACF1E9D9F80BBC4F22C4 /* PlaybackView.swift */,
 				8CB1FA4BB4990588B428781E /* PlayerView.swift */,
 				8B842401113B0BDFA7B532B4 /* QALaunch.swift */,
@@ -285,7 +290,7 @@
 		A8F2C96E75A8FF40AD9C4F24 /* Packages */ = {
 			isa = PBXGroup;
 			children = (
-				0880682FDD3D3B413396938B /* tvbox */,
+				9A132E907040B34C416C3146 /* tvbox-silicon */,
 			);
 			name = Packages;
 			sourceTree = "<group>";
@@ -565,6 +570,7 @@
 				34349D95E4EC0176C10862E2 /* HLSProxy.swift in Sources */,
 				1B6DFFAF679C5BAD70F09875 /* HomeView.swift in Sources */,
 				7FB9AB1705559DD6C22EEFAE /* LiveView.swift in Sources */,
+				9FA246EF9F7FE99169C52873 /* PlatformCompatibility.swift in Sources */,
 				6DBF1FDBD1FD2889D191197E /* PlaybackView.swift in Sources */,
 				FDA61F14FE9C263521D69DD7 /* PlayerView.swift in Sources */,
 				DF010807CD40F2180FDE6793 /* QALaunch.swift in Sources */,
@@ -588,6 +594,7 @@
 				13AB1C878E7990BF8FB16849 /* HLSProxy.swift in Sources */,
 				14E05DC952FB2705E645EAE6 /* HomeView.swift in Sources */,
 				E64F015590BDBE0DFC8A216E /* LiveView.swift in Sources */,
+				288A429671F1244B2AC3C52E /* PlatformCompatibility.swift in Sources */,
 				089C2D01F3B95CB1738D9AD9 /* PlaybackView.swift in Sources */,
 				97DFD3224F5E543A2BE6EDE0 /* PlayerView.swift in Sources */,
 				0AF3C56A9798DD0C68EC63D8 /* QALaunch.swift in Sources */,
@@ -612,6 +619,7 @@
 				D1BC31CCC2FCC4A6AB834BD5 /* HLSProxy.swift in Sources */,
 				6012B7CF185E20A26CC68CD0 /* HomeView.swift in Sources */,
 				F90D633F45956BEB583BB3C8 /* LiveView.swift in Sources */,
+				4825F5E8E19D71E12F29693B /* PlatformCompatibility.swift in Sources */,
 				F418F8B8793AF0B489F83AB9 /* PlaybackView.swift in Sources */,
 				C5E9C8C7F693011882FC1F22 /* PlayerView.swift in Sources */,
 				C715A188F36F0CC004231464 /* QALaunch.swift in Sources */,
@@ -676,7 +684,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 2;
+				CURRENT_PROJECT_VERSION = 3;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				DEVELOPMENT_TEAM = "";
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
@@ -698,7 +706,7 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = Yingxia;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.entertainment";
-				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				MACOSX_DEPLOYMENT_TARGET = 26.0;
 				MARKETING_VERSION = 1.0.1;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
@@ -846,7 +854,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 2;
+				CURRENT_PROJECT_VERSION = 3;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEVELOPMENT_TEAM = "";
 				ENABLE_NS_ASSERTIONS = NO;
@@ -862,7 +870,7 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = Yingxia;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.entertainment";
-				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				MACOSX_DEPLOYMENT_TARGET = 26.0;
 				MARKETING_VERSION = 1.0.1;
 				MTL_ENABLE_DEBUG_INFO = NO;

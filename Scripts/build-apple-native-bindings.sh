@@ -33,7 +33,7 @@ cmake -S "$WORK/capstone" -B "$WORK/capstone-$TARGET" "${COMMON[@]}" -DCAPSTONE_
 cmake --build "$WORK/capstone-$TARGET" -j "${JOBS:-4}"
 cmake -S "$WORK/keystone" -B "$WORK/keystone-$TARGET" "${COMMON[@]}" -DBUILD_SHARED_LIBS=OFF -DBUILD_LIBS_ONLY=ON -DLLVM_TARGETS_TO_BUILD=AArch64 -DPYTHON_EXECUTABLE=/usr/bin/python3
 cmake --build "$WORK/keystone-$TARGET" -j "${JOBS:-4}"
-JDK="${JAVA_HOME:-$(/usr/libexec/java_home -v 19)}"
+JDK="${JAVA_HOME:-$(/usr/libexec/java_home -v 17)}"
 OUT="$WORK/native-$TARGET"; mkdir -p "$OUT" "$WORK/jna-headers" "$WORK/jna-classes" "$OUT/classes"
 "$JDK/bin/javac" -source 8 -target 8 -h "$WORK/jna-headers" -d "$WORK/jna-classes" $(rg --files "$WORK/jna/src" | rg '\.java$')
 FLAGS=(-target "$TRIPLE" -isysroot "$(xcrun --sdk "$SDK" --show-sdk-path)" -O2 -I "$JDK/include" -I "$JDK/include/darwin")

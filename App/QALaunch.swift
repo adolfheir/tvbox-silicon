@@ -34,6 +34,26 @@ enum QALaunch {
             try? await Task.sleep(for: .seconds(2))
             store.searchVideos(String(page.dropFirst(7)))
         }
+        if let page, page.hasPrefix("play-source:"), let config = store.subscription {
+            let key = String(page.dropFirst("play-source:".count))
+            do {
+                guard let site = config.sites.first(where: { $0.key == key }) else { throw QASweep.Failure(message: "Source not found") }
+                let client = CatalogClient(site: site, origin: config.origin, jarURL: config.spiderURL).with(parses: config.parseServices)
+                let home = try await QASweep.limit(60) { try await client.home() }
+                var videos = home.videos
+                if videos.isEmpty, let category = home.categories.first {
+                    videos = try await QASweep.limit(60) { try await client.list(category: category.id, query: "", page: 1).videos }
+                }
+                guard let first = videos.first else { throw QASweep.Failure(message: "No videos") }
+                let video = try await QASweep.limit(60) { try await client.detail(first.id) }
+                guard let episode = video.episodes.first else { throw QASweep.Failure(message: "No episodes") }
+                store.playing = try await QASweep.limit(60) { try await client.playback(episode) }
+            } catch {
+                store.error = error.localizedDescription
+                let file = URL.cachesDirectory.appending(path: "qa-playback.json")
+                try? JSONSerialization.data(withJSONObject: ["source": key, "stage": "resolve", "error": error.localizedDescription]).write(to: file, options: .atomic)
+            }
+        }
         if page == "player", let url = URL(string: "http://127.0.0.1:8765/clip.mp4") {
             store.playing = Channel(name: "测试频道 01", url: url)
         }

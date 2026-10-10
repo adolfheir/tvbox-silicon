@@ -147,7 +147,7 @@ extension View {
     }
 
     func contentPanel(cornerRadius: CGFloat = 12) -> some View {
-        glassEffect(.regular, in: RoundedRectangle(cornerRadius: max(cornerRadius, 14), style: .continuous))
+        adaptiveGlassEffect(.regular, in: RoundedRectangle(cornerRadius: max(cornerRadius, 14), style: .continuous))
     }
 
     @ViewBuilder func cardButton() -> some View {
@@ -204,7 +204,7 @@ struct Pill: View {
         }
         .font(.caption.weight(.semibold)).foregroundStyle(tint)
         .padding(.horizontal, 10).padding(.vertical, 5)
-        .glassEffect(.regular.tint(tint.opacity(0.15)), in: Capsule())
+        .adaptiveGlassEffect(.regular.tint(tint.opacity(0.15)), in: Capsule())
     }
 }
 
@@ -221,7 +221,7 @@ struct StatusNotice: View {
         .font(.subheadline)
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(14)
-        .glassEffect(.regular.tint(tint.opacity(0.12)), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .adaptiveGlassEffect(.regular.tint(tint.opacity(0.12)), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
     }
 }
 
@@ -234,7 +234,7 @@ private struct FilterChipStyle: ButtonStyle {
             .foregroundStyle(selected ? Brand.onAccent : .primary)
             .padding(.horizontal, 12).padding(.vertical, 8)
             .frame(minHeight: 44)
-            .glassEffect(selected ? .regular.tint(Brand.accent).interactive() : .regular.interactive(), in: Capsule())
+            .adaptiveGlassEffect(selected ? .regular.tint(Brand.accent).interactive() : .regular.interactive(), in: Capsule())
             .contentShape(Capsule())
             .opacity(configuration.isPressed ? 0.8 : 1)
     }
@@ -403,7 +403,7 @@ struct PosterCard: View {
                     if !remarks.isEmpty {
                         Text(remarks).font(.caption2.weight(.semibold)).lineLimit(1)
                             .foregroundStyle(.white).padding(.horizontal, 6).padding(.vertical, 3)
-                            .glassEffect(.regular.tint(.black.opacity(0.45)), in: Capsule()).padding(8)
+                            .adaptiveGlassEffect(.regular.tint(.black.opacity(0.45)), in: Capsule()).padding(8)
                     }
                 }
             Text(name).font(.subheadline.weight(.semibold)).foregroundStyle(.primary)
@@ -612,7 +612,7 @@ struct LoadingCard: View {
         }
         .padding(.horizontal, 18).padding(.vertical, 14)
         .frame(maxWidth: 620, alignment: .leading)
-        .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .adaptiveGlassEffect(.regular, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
         .accessibilityElement(children: .combine)
         .animation(.smooth(duration: 0.25), value: state.title)
         .animation(.smooth(duration: 0.25), value: explains)
@@ -755,7 +755,7 @@ extension View {
     }
     @ViewBuilder func controlBackdrop() -> some View {
         #if os(tvOS)
-        background(Color.clear.glassEffect(.regular, in: .rect))
+        background(Color.clear.adaptiveGlassEffect(.regular, in: .rect))
         #else
         background(.bar)
         #endif

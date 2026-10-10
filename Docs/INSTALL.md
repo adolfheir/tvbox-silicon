@@ -1,5 +1,7 @@
 # Install Yingxia on iPhone, iPad and Apple TV
 
+**This fork also targets iOS / iPadOS 17.0+.** Build the iPhone/iPad app from this fork using [IPADOS17.md](IPADOS17.md); the upstream download links in this guide point to the original iOS 26 build. Developer Mode and a valid device-specific signature are still required for development installation.
+
 The Mac version is a regular [signed download](https://yingxia.getmegaportal.com). The iPhone, iPad and Apple TV versions aren't on the App Store yet, so you install them yourself with [Sideloadly](https://sideloadly.io/). Sideloadly signs the app with your own Apple account and installs it on your device. No jailbreak is required.
 
 ## What you need

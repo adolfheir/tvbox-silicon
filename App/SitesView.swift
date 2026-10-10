@@ -127,7 +127,7 @@ struct SiteView: View {
     }
     private var categoryBar: some View {
         ChipRow {
-            GlassEffectContainer(spacing: 8) {
+            AdaptiveGlassContainer(spacing: 8) {
                 HStack(spacing: 8) {
                     Chip(title: L10n.text("Recommendations"), selected: browser.query.isEmpty && browser.category.isEmpty) { query = ""; Task { await home() } }
                     ForEach(browser.categories) { item in
@@ -141,7 +141,7 @@ struct SiteView: View {
         }
     }
     private var pager: some View {
-        GlassEffectContainer(spacing: 10) {
+        AdaptiveGlassContainer(spacing: 10) {
             HStack(spacing: 10) {
                 Button { Task { await load(page: browser.page - 1) } } label: { Image(systemName: "chevron.left").frame(width: 22) }
                     .controlButton().disabled(browser.page <= 1 || browser.busy).accessibilityLabel(L10n.text("Previous"))

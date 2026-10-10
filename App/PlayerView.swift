@@ -45,7 +45,7 @@ struct PlaybackView: View {
             HStack(spacing: 12) {
                 Text(channel.name).font(.headline).lineLimit(1)
                     .padding(.horizontal, 18).padding(.vertical, 11)
-                    .glassEffect(.regular, in: Capsule())
+                    .adaptiveGlassEffect(.regular, in: Capsule())
                 Spacer(minLength: 0)
                 Button { dismiss() } label: { Image(systemName: "xmark").font(.headline).frame(width: 22, height: 22) }
                     .controlButton().buttonBorderShape(.circle).controlSize(.large)
@@ -78,7 +78,7 @@ struct PlaybackView: View {
             VStack(spacing: 18) {
                 Image(systemName: "exclamationmark.triangle.fill").font(.largeTitle).foregroundStyle(Brand.amber)
                 Text(error).multilineTextAlignment(.center).frame(maxWidth: 420)
-                GlassEffectContainer(spacing: 10) {
+                AdaptiveGlassContainer(spacing: 10) {
                     HStack(spacing: 10) {
                         Button(L10n.text("Retry")) { session.start(channel) }.controlButton(prominent: true).tint(Brand.accent)
                         Button(L10n.text("Close")) { dismiss() }.controlButton()
@@ -356,7 +356,7 @@ private struct DesktopPlaybackView: View {
                 .shadow(color: .black.opacity(0.6), radius: 4)
                 .padding(.leading, 86)
             Spacer(minLength: 12)
-            GlassEffectContainer(spacing: 8) {
+            AdaptiveGlassContainer(spacing: 8) {
                 HStack(spacing: 8) {
                     barButton("gobackward.10", L10n.text("Back 10 seconds (←)")) { session.skip(-10) }
                     barButton("goforward.10", L10n.text("Forward 10 seconds (→)")) { session.skip(10) }
@@ -376,7 +376,7 @@ private struct DesktopPlaybackView: View {
         Button(action: action) { Image(systemName: symbol).font(.system(size: 14, weight: .medium)) }
             .buttonStyle(.plain)
             .frame(width: 34, height: 34)
-            .glassEffect(.regular.interactive(), in: Circle())
+            .adaptiveGlassEffect(.regular.interactive(), in: Circle())
             .help(label)
             .accessibilityLabel(label)
     }
@@ -396,7 +396,7 @@ private struct DesktopPlaybackView: View {
         } label: { Image(systemName: "slider.horizontal.3").font(.system(size: 14, weight: .medium)) }
             .menuStyle(.borderlessButton).menuIndicator(.hidden)
             .frame(width: 34, height: 34)
-            .glassEffect(.regular.interactive(), in: Circle())
+            .adaptiveGlassEffect(.regular.interactive(), in: Circle())
             .help(L10n.text("Playback Options"))
             .accessibilityLabel(L10n.text("Playback Options"))
     }

@@ -1,3 +1,5 @@
+> **iPadOS 17 fork:** This fork of [jo32/tvbox-silicon](https://github.com/jo32/tvbox-silicon) lowers the iPhone/iPad deployment target to 17.0 and uses [adolfheir/tvbox](https://github.com/adolfheir/tvbox) as its default subscription. See [build instructions and verification limits](Docs/IPADOS17.md). The upstream IPA links below still require iOS 26.
+
 <p align="center">
   <a href="https://yingxia.getmegaportal.com"><img src="website/public/assets/icon-rounded-192.png" width="128" height="128" alt="Yingxia app icon"></a>
 </p>
@@ -65,10 +67,10 @@ The iPhone, iPad and Apple TV apps aren't on the App Store yet. The [install gui
 
 ## 🛠️ Build from source
 
-You'll need Xcode, [XcodeGen](https://github.com/yonaskolb/XcodeGen), JDK 19 with Maven, a standalone Node.js binary, and [uv](https://docs.astral.sh/uv/).
+You'll need Xcode, [XcodeGen](https://github.com/yonaskolb/XcodeGen), JDK 17 with Maven, a standalone Node.js binary, and [uv](https://docs.astral.sh/uv/).
 
 ```sh
-export JAVA_HOME="$(/usr/libexec/java_home -v 19)"
+export JAVA_HOME="$(/usr/libexec/java_home -v 17)"
 Scripts/build-java-host.sh      # bundled JVM plugin runtime
 Scripts/build-script-host.sh    # JavaScript host
 Scripts/build-python-host.sh    # Python host

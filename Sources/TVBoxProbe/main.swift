@@ -7,6 +7,11 @@ import TVCore
         guard args.count >= 2 else {
             print("Usage: TVBoxProbe <jar path> [class descriptor] [static int method]")
             print("       TVBoxProbe --subscription-check <URL> [...]")
+            print("       TVBoxProbe --playback-smoke <URL> <output.json> <source filter> [...]")
+            return
+        }
+        if args[1] == "--playback-smoke", args.count >= 5 {
+            try await PlaybackAcceptance.run(address: args[2], output: args[3], filters: Array(args.dropFirst(4)))
             return
         }
         if args[1] == "--subscription-check" {

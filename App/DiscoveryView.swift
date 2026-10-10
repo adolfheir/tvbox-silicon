@@ -49,8 +49,7 @@ struct GlobalSearchView: View {
         #else
         searchResults
             .scrollPosition(id: $model.scrollID)
-            .scrollEdgeEffectStyle(.soft, for: .top)
-            .safeAreaBar(edge: .top, spacing: 0) { if let config = store.subscription { searchHeader(config) } }
+            .adaptiveSearchHeader { if let config = store.subscription { searchHeader(config) } }
             .screenBackdrop()
             .screenTitle(L10n.text("Global Search"))
             #if os(iOS)
@@ -320,7 +319,7 @@ struct GlobalSearchView: View {
                         if index < history.count - 1 { Divider().padding(.leading, 56) }
                     }
                 }
-                .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+                .adaptiveGlassEffect(.regular, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
             }
             #endif
         }
@@ -720,6 +719,28 @@ struct SourceStrip: View {
 /// also be dragged like a trackpad swipe and shows arrow buttons once it overflows. Elsewhere it is
 /// a plain horizontal scroll view (touch on iOS; tvOS rows stay focus-driven and do not use it).
 struct ScrollStrip<Content: View>: View {
+    var scrollTo: String?
+    var leftLabel = "Scroll left"
+    var rightLabel = "Scroll right"
+    @ViewBuilder var content: Content
+
+    var body: some View {
+        if #available(iOS 18.0, tvOS 18.0, *), !PlatformCompatibility.forceLegacyUI {
+            ModernScrollStrip(scrollTo: scrollTo, leftLabel: leftLabel, rightLabel: rightLabel) { content }
+        } else {
+            ScrollViewReader { proxy in
+                ScrollView(.horizontal, showsIndicators: false) { content }
+                    .onAppear { if let scrollTo { proxy.scrollTo(scrollTo, anchor: .center) } }
+                    .onChange(of: scrollTo) { _, target in
+                        if let target { withAnimation { proxy.scrollTo(target, anchor: .center) } }
+                    }
+            }
+        }
+    }
+}
+
+@available(iOS 18.0, tvOS 18.0, *)
+private struct ModernScrollStrip<Content: View>: View {
     let scrollTo: String?
     let leftLabel: String
     let rightLabel: String

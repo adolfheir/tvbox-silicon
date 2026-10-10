@@ -98,7 +98,7 @@ struct ChannelListView: View {
     private var filterBar: some View {
         VStack(alignment: .leading, spacing: 10) {
             ChipRow {
-                GlassEffectContainer(spacing: 8) {
+                AdaptiveGlassContainer(spacing: 8) {
                     HStack(spacing: 8) {
                         Chip(title: L10n.text("All"), selected: group == nil) { group = nil }
                         ForEach(groups, id: \.self) { value in

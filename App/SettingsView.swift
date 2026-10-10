@@ -16,11 +16,15 @@ struct SettingsGroup<Content: View>: View {
                     .padding(.horizontal, 4).accessibilityAddTraits(.isHeader)
             }
             VStack(spacing: 0) {
-                Group(subviews: content) { rows in
-                    ForEach(rows) { row in
-                        row
-                        if row.id != rows.last?.id { Divider().padding(.leading, 14) }
+                if #available(iOS 18.0, tvOS 18.0, macOS 15.0, *), !PlatformCompatibility.forceLegacyUI {
+                    Group(subviews: content) { rows in
+                        ForEach(rows) { row in
+                            row
+                            if row.id != rows.last?.id { Divider().padding(.leading, 14) }
+                        }
                     }
+                } else {
+                    content
                 }
             }
             .background(SettingsStyle.groupFill, in: RoundedRectangle(cornerRadius: SettingsStyle.radius, style: .continuous))
