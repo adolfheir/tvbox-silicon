@@ -399,3 +399,28 @@
 "The source returned a web page instead of data. It may be offline or blocking apps." = "来源返回了网页而不是数据，可能已失效或拦截了应用访问。";
 "This subscription's plugin package doesn't include %@. Ask the subscription's maintainer or use another source." = "订阅的插件包中没有 %@，请联系订阅维护者或换一个源。";
 "The plugin download returned a web page instead of a plugin. Its host may be offline." = "插件下载得到的是网页而不是插件，插件所在的服务器可能已失效。";
+
+// Optional player danmaku.
+"Danmaku" = "弹幕";
+"Show Danmaku" = "显示弹幕";
+"Loaded %lld comments" = "已加载 %lld 条弹幕";
+"Opacity" = "不透明度";
+"Text Size" = "字号";
+"Time Offset: %@ s" = "时间偏移：%@ 秒";
+"A positive offset shows comments later. Playback controls stay available." = "正值会延后显示弹幕，播放控制仍可正常使用。";
+"Clear Danmaku" = "清除弹幕";
+"Video title" = "影片名称";
+"Back to search results" = "返回搜索结果";
+"No danmaku found. Try another title or server." = "未找到弹幕，请尝试其他片名或服务。";
+"Find Danmaku" = "查找弹幕";
+"Search sends only the title to the selected danmaku service. Choose the correct season and episode; some videos have no comments." = "搜索只会向所选弹幕服务发送片名，请选择正确的季度和集数，部分影片没有弹幕。";
+"Danmaku server URL" = "弹幕服务地址";
+"Danmaku Service" = "弹幕服务";
+"Uses a public Dandanplay-compatible service. You can enter your own danmu_api server. Availability depends on the service." = "使用公开的弹弹play兼容服务，也可填入自建 danmu_api 服务地址；可用性取决于服务端。";
+"The danmaku file is too large." = "弹幕文件过大。";
+"The service did not return a supported danmaku list." = "服务未返回支持的弹幕列表。";
+"Enter the danmaku server base URL, without a query or fragment." = "请输入弹幕服务的基础地址，不要附带查询参数或片段。";
+"This danmaku server requires authorization. Choose a compatible public or self-hosted server." = "此弹幕服务需要授权，请使用兼容的公开服务或自建服务。";
+"The danmaku server could not complete this request. Try another server." = "弹幕服务无法完成请求，请尝试其他服务。";
+"Import Danmaku File" = "导入弹幕文件";
+"Import Bilibili XML or Dandanplay JSON from Files. Imported comments do not require a network connection." = "从文件 App 导入 Bilibili XML 或弹弹play JSON，导入后无需联网即可显示。";

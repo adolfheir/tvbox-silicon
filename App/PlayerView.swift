@@ -8,8 +8,14 @@ struct PlaybackView: View {
     @State private var session = PlaybackSession()
     @State private var showsChrome = true
     @State private var hideTask: Task<Void, Never>?
+    @State private var showsDanmaku = false
 
-    private var chromeVisible: Bool { showsChrome || session.error != nil || session.loading }
+    private var chromeVisible: Bool {
+        #if DEBUG
+        if UserDefaults.standard.bool(forKey: "qaPlayerControls") { return true }
+        #endif
+        return showsChrome || session.error != nil || session.loading
+    }
 
     var body: some View {
         ZStack {
@@ -20,7 +26,7 @@ struct PlaybackView: View {
                 NativePlayerView(player: session.player).ignoresSafeArea()
             }
             #else
-            NativePlayerView(player: session.player).ignoresSafeArea()
+            NativePlayerView(player: session.player, danmaku: session.danmaku).ignoresSafeArea()
             #endif
             #if !os(tvOS)
             chrome.opacity(chromeVisible ? 1 : 0).allowsHitTesting(chromeVisible)
@@ -36,7 +42,32 @@ struct PlaybackView: View {
         .simultaneousGesture(TapGesture().onEnded { poke() })
         #endif
         .onAppear { session.start(channel); poke() }
+        #if DEBUG
+        .task {
+            if UserDefaults.standard.bool(forKey: "qaDanmakuFile") {
+                try? session.danmaku.importFile(URL.cachesDirectory.appending(path: "qa-danmaku.json"))
+            }
+            if let title = UserDefaults.standard.string(forKey: "qaDanmakuTitle") {
+                do {
+                    let client = try DanmakuClient()
+                    let animes = try await client.search(title)
+                    guard let anime = animes.first(where: { $0.title == title }) ?? animes.first,
+                          let episode = try await client.episodes(anime).first else { return }
+                    try await session.danmaku.load(episode, anime: anime, client: client)
+                } catch {
+                    try? Data(error.localizedDescription.utf8).write(to: URL.cachesDirectory.appending(path: "qa-danmaku-error.txt"))
+                }
+            }
+            if UserDefaults.standard.bool(forKey: "qaDanmakuSettings") { showsDanmaku = true }
+
+        }
+        #endif
         .onDisappear { hideTask?.cancel(); session.stop() }
+        #if !os(tvOS)
+        .sheet(isPresented: $showsDanmaku) {
+            DanmakuSettingsView(model: session.danmaku, channelName: channel.name)
+        }
+        #endif
     }
 
     #if !os(tvOS)
@@ -47,12 +78,19 @@ struct PlaybackView: View {
                     .padding(.horizontal, 18).padding(.vertical, 11)
                     .adaptiveGlassEffect(.regular, in: Capsule())
                 Spacer(minLength: 0)
+                Button { showsDanmaku = true } label: {
+                    Label(L10n.text("Danmaku"), systemImage: "text.bubble")
+                }
+                .controlButton().buttonBorderShape(.capsule).controlSize(.large)
+                .accessibilityIdentifier("player.danmaku")
                 Button { dismiss() } label: { Image(systemName: "xmark").font(.headline).frame(width: 22, height: 22) }
                     .controlButton().buttonBorderShape(.circle).controlSize(.large)
                     .accessibilityLabel(L10n.text("Close"))
                     .keyboardShortcut(.cancelAction)
             }
-            .padding(16)
+            // AVKit keeps its volume and fullscreen controls at the top corners.
+            // Give them a separate row instead of covering them with app controls.
+            .padding(.horizontal, 16).padding(.top, 80)
             Spacer()
         }
     }
@@ -90,7 +128,7 @@ struct PlaybackView: View {
         } else if session.loading || session.buffering {
             // Top of the frame, clear of the transport bar. Seeks stall briefly; only longer waits show.
             LoadingCard(appearAfter: session.loading ? 0 : 1.5) { session.loadingProgress }
-                .padding(.horizontal, 24).padding(.top, 48)
+                .padding(.horizontal, 24).padding(.top, 148)
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
                 .allowsHitTesting(false)
         }
@@ -176,6 +214,7 @@ private struct TVPlaybackRecoveryStyle: ButtonStyle {
 #if os(macOS)
 private struct NativePlayerView: NSViewRepresentable {
     let player: AVPlayer
+    let danmaku: DanmakuModel
     func makeNSView(context: Context) -> AVPlayerView {
         let view = AVPlayerView()
         view.player = player
@@ -185,10 +224,40 @@ private struct NativePlayerView: NSViewRepresentable {
     }
     func updateNSView(_ view: AVPlayerView, context: Context) { view.player = player }
 }
-#else
+#elseif os(tvOS)
 private struct NativePlayerView: View {
     let player: AVPlayer
     var body: some View { VideoPlayer(player: player) }
+}
+#else
+/// Attach the noninteractive drawing layer to AVKit's content overlay so it is
+/// retained when AVKit moves the video into its native fullscreen presentation.
+private struct NativePlayerView: UIViewControllerRepresentable {
+    let player: AVPlayer
+    let danmaku: DanmakuModel
+    func makeUIViewController(context: Context) -> AVPlayerViewController {
+        let controller = AVPlayerViewController()
+        controller.player = player
+        controller.loadViewIfNeeded()
+        let host = UIHostingController(rootView: DanmakuOverlay(model: danmaku))
+        controller.addChild(host)
+        host.view.backgroundColor = .clear
+        host.view.isUserInteractionEnabled = false
+        host.view.translatesAutoresizingMaskIntoConstraints = false
+        if let overlay = controller.contentOverlayView {
+            overlay.addSubview(host.view)
+            NSLayoutConstraint.activate([
+                host.view.leadingAnchor.constraint(equalTo: overlay.leadingAnchor),
+                host.view.trailingAnchor.constraint(equalTo: overlay.trailingAnchor),
+                host.view.topAnchor.constraint(equalTo: overlay.topAnchor),
+                host.view.bottomAnchor.constraint(equalTo: overlay.bottomAnchor)
+            ])
+        }
+        host.didMove(toParent: controller)
+        return controller
+    }
+    func updateUIViewController(_ controller: AVPlayerViewController, context: Context) { controller.player = player }
+    static func dismantleUIViewController(_ controller: AVPlayerViewController, coordinator: ()) { controller.player = nil }
 }
 #endif
 
@@ -314,6 +383,7 @@ private struct DesktopPlaybackView: View {
     @State private var fillsFrame = false
     @State private var floats = false
     @State private var idle = ChromeIdle()
+    @State private var showsDanmaku = false
 
     private var showsChrome: Bool { idle.visible || session.error != nil }
 
@@ -322,6 +392,7 @@ private struct DesktopPlaybackView: View {
             ZStack {
                 Color.black
                 DesktopNativePlayer(player: session.player, fillsFrame: fillsFrame)
+                DanmakuOverlay(model: session.danmaku, fitVideo: !fillsFrame)
                 if let error = session.error {
                     VStack(spacing: 16) {
                         Image(systemName: "exclamationmark.triangle").font(.largeTitle)
@@ -347,6 +418,9 @@ private struct DesktopPlaybackView: View {
         .onChange(of: showsChrome) { _, value in setTrafficLights(visible: value) }
         .onAppear { floats = window.level == .floating; idle.attach(window) }
         .onDisappear { idle.detach() }
+        .sheet(isPresented: $showsDanmaku) {
+            DanmakuSettingsView(model: session.danmaku, channelName: channel.name)
+        }
     }
 
     /// Title on the left (beside the traffic lights), actions on the right, over a soft scrim.
@@ -361,6 +435,7 @@ private struct DesktopPlaybackView: View {
                     barButton("gobackward.10", L10n.text("Back 10 seconds (←)")) { session.skip(-10) }
                     barButton("goforward.10", L10n.text("Forward 10 seconds (→)")) { session.skip(10) }
                     optionsMenu
+                    barButton("text.bubble", L10n.text("Danmaku")) { showsDanmaku = true }
                     barButton("arrow.up.left.and.arrow.down.right", L10n.text("Enter / Exit Full Screen")) { window.toggleFullScreen(nil) }
                 }
             }

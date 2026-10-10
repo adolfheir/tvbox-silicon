@@ -5,10 +5,10 @@ This fork keeps Yingxia's native player and on-device plugin runtime, and lowers
 The default subscription is:
 
 ```text
-https://raw.githubusercontent.com/adolfheir/tvbox/master/fty.json
+https://cdn.jsdelivr.net/gh/adolfheir/tvbox@master/fty.json
 ```
 
-It comes from the separate [adolfheir/tvbox](https://github.com/adolfheir/tvbox) source-configuration fork. On first launch, import the default subscription in Settings. Updating an existing app preserves its saved subscription; select the default address and save to switch it.
+It serves the separate [adolfheir/tvbox](https://github.com/adolfheir/tvbox) source-configuration fork through jsDelivr. The connected iPad timed out on the GitHub raw host; the CDN response was verified byte-for-byte against the fork file. On first launch, import the default subscription in Settings. Updating an existing app preserves its saved subscription; select the default address and save to switch it.
 
 ## Compatibility changes
 
@@ -42,16 +42,17 @@ This flow is development sideloading; it does not submit anything to the App Sto
 As of 2026-10-10:
 
 - The full arm64 iPhone/iPad app builds successfully with deployment target 17.0, including the on-device Java runtime. Both the app's `MinimumOSVersion` and Mach-O minimum OS are 17.0.
-- `swift test` passes 90 core tests; `python3 Scripts/check-localizations.py` passes for four languages.
+- `swift test` passes 95 core tests; `python3 Scripts/check-localizations.py` passes for four languages.
 - A real-network **Mac** AVPlayer decoder check plays 瓜子 and 光影 for approximately eight seconds with decoded video frames, and 易听 advances audio playback. This does not establish iPad playback or availability of every source.
 - An iPad simulator running iOS 18.2 exercises the debug-forced legacy UI and plays 瓜子 for more than 80 seconds and 光影 for more than 50 seconds with visible video, normal player progress and no reported error. This is not an iPadOS 17 runtime test, and its isolated QA target has no Java runtime.
-- Physical iPadOS 17.7.11 installation and playback acceptance are pending on-device Developer Mode and device registration/signing. Do not treat compilation or simulator checks as physical-device acceptance.
+- On a physical sixth-generation iPad running iPadOS 17.7.11, the full signed app installs successfully and the CDN subscription imports 48 sites and 6 live lists. 瓜子 advances for more than 53 seconds with visible video and no player error. Search returns real results, but individual third-party sources are not all verified; 光影's selected resource returned an unavailable-resource error on this device.
+- Optional player danmaku and its verification limits are described in [DANMAKU.md](DANMAKU.md).
 
 Repeat the desktop decoder check with:
 
 ```sh
 swift run TVBoxProbe --playback-smoke \
-  https://raw.githubusercontent.com/adolfheir/tvbox/master/fty.json \
+  https://cdn.jsdelivr.net/gh/adolfheir/tvbox@master/fty.json \
   build/desktop-playback.json 瓜子 光影 易听
 ```
 

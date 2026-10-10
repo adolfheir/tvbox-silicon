@@ -4,6 +4,8 @@ import TVCore
 
 @MainActor @Observable final class PlaybackSession {
     let player = AVPlayer()
+    let danmaku = DanmakuModel()
+    private var mediaTimeObserver: Any?
     var error: String?
     var loading = true
     var looping = false
@@ -135,6 +137,12 @@ import TVCore
         player.isMuted = UserDefaults.standard.bool(forKey: "qaMute")
         #endif
         player.replaceCurrentItem(with: item)
+        mediaTimeObserver = player.addPeriodicTimeObserver(forInterval: CMTime(seconds: 1.0 / 30, preferredTimescale: 600), queue: .main) { [weak self] time in
+            Task { @MainActor [weak self] in
+                guard let self, self.generation == activeGeneration, time.seconds.isFinite else { return }
+                self.danmaku.time = time.seconds
+            }
+        }
         player.play()
         let origin = channel.url.host()
         sampler = Task { [weak self] in
@@ -150,6 +158,7 @@ import TVCore
     private func sample(_ history: inout [(date: Date, bytes: Int64)], tick: Int, origin: String?, generation activeGeneration: UUID) -> Bool {
         guard generation == activeGeneration else { return false }
         guard let item = player.currentItem else { return true }
+        danmaku.videoSize = item.presentationSize
         let events = item.accessLog()?.events ?? []
         let now = Date()
         var next = Transfer(received: events.reduce(Int64(0)) { $0 + max(0, $1.numberOfBytesTransferred) })
@@ -191,7 +200,9 @@ import TVCore
             let seconds = player.currentTime().seconds
             let report: [String: Any] = ["stage": "playback", "seconds": seconds.isFinite ? seconds : 0,
                 "rate": player.rate, "ready": item.status == .readyToPlay, "receivedBytes": next.received,
-                "host": next.host ?? "", "error": error ?? "", "buffering": buffering]
+                "host": next.host ?? "", "error": error ?? "", "buffering": buffering,
+                "danmakuCount": danmaku.comments.count, "danmakuTrack": danmaku.track,
+                "danmakuTime": danmaku.time, "danmakuOffset": danmaku.offset, "danmakuEnabled": danmaku.enabled]
             try? JSONSerialization.data(withJSONObject: report, options: [.sortedKeys]).write(
                 to: URL.cachesDirectory.appending(path: "qa-playback.json"), options: .atomic)
         }
@@ -217,6 +228,9 @@ import TVCore
             Diagnostics.shared.record(.info, "player", "stop at=\(seconds.isFinite ? Int(seconds) : -1)s")
         }
         generation = UUID()
+        if let mediaTimeObserver { player.removeTimeObserver(mediaTimeObserver) }
+        mediaTimeObserver = nil
+        danmaku.clear()
         preparation?.cancel(); preparation = nil
         sampler?.cancel(); sampler = nil
         transfer = Transfer()
