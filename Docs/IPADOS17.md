@@ -46,7 +46,7 @@ As of 2026-10-10:
 - A real-network **Mac** AVPlayer decoder check plays 瓜子 and 光影 for approximately eight seconds with decoded video frames, and 易听 advances audio playback. This does not establish iPad playback or availability of every source.
 - An iPad simulator running iOS 18.2 exercises the debug-forced legacy UI and plays 瓜子 for more than 80 seconds and 光影 for more than 50 seconds with visible video, normal player progress and no reported error. This is not an iPadOS 17 runtime test, and its isolated QA target has no Java runtime.
 - On a physical sixth-generation iPad running iPadOS 17.7.11, the full signed app installs successfully and the CDN subscription imports 48 sites and 6 live lists. 瓜子 advances for more than 53 seconds with visible video and no player error. Search returns real results, but individual third-party sources are not all verified; 光影's selected resource returned an unavailable-resource error on this device.
-- Optional player danmaku and its verification limits are described in [DANMAKU.md](DANMAKU.md).
+- Optional player danmaku passed a real-service simulator UI test and a physical iPadOS 17.7.11 test: 7,310 comments loaded for one episode and playback advanced beyond 119 seconds with visible comments. Details and limits are described in [DANMAKU.md](DANMAKU.md).
 
 Repeat the desktop decoder check with:
 
