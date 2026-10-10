@@ -87,7 +87,53 @@ public struct DanmakuEpisode: Identifiable, Sendable, Hashable {
     public let title: String
 }
 
-/// Only requested when the viewer searches/selects a danmaku track. Video URLs,
+/// Prefer no track to a track from the wrong season or episode.
+public enum DanmakuMatcher {
+    public static func anime(title: String, in results: [DanmakuAnime]) -> DanmakuAnime? {
+        let key = normalized(title)
+        guard !key.isEmpty else { return nil }
+        var seen = Set<String>()
+        let matches = results.filter { normalized($0.title) == key && seen.insert($0.id).inserted }
+        return matches.count == 1 ? matches.first : nil
+    }
+
+    public static func episode(name: String, in episodes: [DanmakuEpisode]) -> DanmakuEpisode? {
+        if let number = episodeNumber(name) {
+            let matches = episodes.filter { episodeNumber($0.title) == number }
+            return matches.count == 1 ? matches.first : nil
+        }
+        let movies = ["正片", "电影", "電影", "剧场版", "劇場版", "hd", "hd中字", "hd国语", "1080p", "720p", "蓝光", "藍光", "完整版", "fullmovie"]
+        return episodes.count == 1 && movies.contains(normalized(name)) ? episodes.first : nil
+    }
+
+    public static func episodeNumber(_ name: String) -> Int? {
+        let value = name.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        for pattern in [#"^(?:第\s*)?([0-9]{1,4})\s*(?:[集话話回]|$)"#,
+                        #"^ep(?:isode)?\.?\s*([0-9]{1,4})(?:\D|$)"#] {
+            if let expression = try? NSRegularExpression(pattern: pattern),
+               let match = expression.firstMatch(in: value, range: NSRange(value.startIndex..., in: value)),
+               let range = Range(match.range(at: 1), in: value), let number = Int(value[range]), number > 0 { return number }
+        }
+        let expression = try! NSRegularExpression(pattern: #"^第([零〇一二两三四五六七八九十百]+)[集话話回]"#)
+        guard let match = expression.firstMatch(in: value, range: NSRange(value.startIndex..., in: value)),
+              let range = Range(match.range(at: 1), in: value) else { return nil }
+        let digits: [Character: Int] = ["零":0,"〇":0,"一":1,"二":2,"两":2,"三":3,"四":4,"五":5,"六":6,"七":7,"八":8,"九":9]
+        var total = 0, digit = 0
+        for char in value[range] {
+            if let number = digits[char] { digit = number }
+            else { total += max(1, digit) * (char == "百" ? 100 : 10); digit = 0 }
+        }
+        let number = total + digit
+        return number > 0 ? number : nil
+    }
+
+    private static func normalized(_ text: String) -> String {
+        String(text.folding(options: [.caseInsensitive, .widthInsensitive, .diacriticInsensitive], locale: Locale(identifier: "en_US_POSIX"))
+            .unicodeScalars.filter { CharacterSet.alphanumerics.contains($0) })
+    }
+}
+
+/// Automatic matching and manual searches send only titles and IDs. Video URLs,
 /// subscription URLs, headers and credentials are never sent to this service.
 public struct DanmakuClient: Sendable {
     public static let defaultServer = "https://danmaku-api.152468.xyz"
@@ -141,7 +187,7 @@ public struct DanmakuClient: Sendable {
         parts.queryItems = query.isEmpty ? nil : query
         var request = URLRequest(url: parts.url!, timeoutInterval: 25)
         request.setValue("application/json", forHTTPHeaderField: "Accept")
-        request.setValue("Yingxia/1.0.1 (danmaku; https://github.com/adolfheir/tvbox-silicon)", forHTTPHeaderField: "User-Agent")
+        request.setValue("Yingxia/1.0.2 (danmaku; https://github.com/adolfheir/tvbox-silicon)", forHTTPHeaderField: "User-Agent")
         let (bytes, response) = try await URLSession.shared.bytes(for: request)
         let status = (response as? HTTPURLResponse)?.statusCode ?? 0
         guard (200..<300).contains(status) else {

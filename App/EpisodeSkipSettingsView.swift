@@ -35,12 +35,14 @@ struct EpisodeSkipSettingsView: View {
                     Button(L10n.text("Use current position (%@)", EpisodeSkipSettings.formatTime(session.position))) {
                         intro = EpisodeSkipSettings.formatTime(session.position); enabled = true
                     }.disabled(session.duration < 120)
+                    .accessibilityIdentifier("player.skip.markIntro")
                 }
                 Section(L10n.text("Outro starts at")) {
                     timeField(L10n.text("Outro starts at"), text: $outro, identifier: "player.skip.outro")
                     Button(L10n.text("Use current position (%@)", EpisodeSkipSettings.formatTime(session.position))) {
                         outro = EpisodeSkipSettings.formatTime(session.position); enabled = true
                     }.disabled(session.duration < 120)
+                    .accessibilityIdentifier("player.skip.markOutro")
                     Text(L10n.text("Leave a time empty to keep that segment. Format: minutes:seconds."))
                         .font(.footnote).foregroundStyle(.secondary)
                 }

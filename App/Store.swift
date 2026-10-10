@@ -5,6 +5,8 @@ import TVCore
     static let defaultURL = "https://cdn.jsdelivr.net/gh/adolfheir/tvbox@master/fty.json"
     let searchModel = SearchModel()
     let recommendationModel = RecommendationModel()
+    let playbackHistory = PlaybackHistory.shared
+    var resumingHistoryID: String?
     var subscription: Subscription?
     var subscriptionAddress: String
     var favorites: [Channel] = []
@@ -85,4 +87,37 @@ import TVCore
         defaults.set(try? JSONEncoder().encode(favorites), forKey: "favorites")
     }
     func isFavorite(_ channel: Channel) -> Bool { favorites.contains { $0.id == channel.id } }
+
+    func catalogChannel(_ resolved: Channel, video: Video, episode: Episode, client: CatalogClient,
+                        resumePosition: Double? = nil) -> Channel {
+        let context = PlaybackHistoryContext(origin: client.origin, site: client.site, video: video, episode: episode)
+        return Channel(name: "\(video.name) · \(episode.name)", group: resolved.group, url: resolved.url,
+                       logo: resolved.logo, headers: resolved.headers, skipScope: context.id,
+                       historyContext: context, resumePosition: resumePosition)
+    }
+
+    func resumeHistory(_ entry: PlaybackHistoryEntry) async {
+        guard resumingHistoryID == nil else { return }
+        guard let config = subscription, config.origin == entry.context.origin,
+              let site = config.sites.first(where: { $0.key == entry.context.sourceKey }) else {
+            error = L10n.text("This history source is no longer in the current subscription. Restore that subscription to continue.")
+            return
+        }
+        resumingHistoryID = entry.id
+        let previousPlayback = playing
+        defer { resumingHistoryID = nil }
+        do {
+            let client = CatalogClient(site: site, origin: config.origin, jarURL: config.spiderURL).with(parses: config.parseServices)
+            let video = try await client.detail(entry.context.videoID)
+            guard let episode = entry.context.episode(in: video.episodes) else {
+                throw TVError.unsupported(L10n.text("The saved episode is no longer available from this source. Choose an episode again."))
+            }
+            let channel = try await client.playback(episode)
+            guard !Task.isCancelled, playing == previousPlayback, subscription?.origin == config.origin else { return }
+            playing = catalogChannel(channel, video: video, episode: episode, client: client, resumePosition: entry.resumePosition)
+        } catch {
+            guard !(error is CancellationError) else { return }
+            self.error = L10n.text("Unable to resume playback: %@", error.localizedDescription)
+        }
+    }
 }

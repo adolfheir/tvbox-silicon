@@ -7,6 +7,8 @@ final class DanmakuUITests: XCTestCase {
         continueAfterFailure = false
         let app = XCUIApplication()
         app.launchArguments = ["-qaSection", "home", "-qaPage", "play-source:瓜子",
+                               "-qaSubscription", "https://cdn.jsdelivr.net/gh/adolfheir/tvbox@master/fty.json",
+                               "-danmakuAutoMatch", "0",
                                "-qaVideoQuery", "葬送的芙莉莲", "-qaDanmakuSettings", "1", "-qaMute", "1", "-qaLegacyUI", "1", "-AppleLanguages", "(zh-Hans)"]
         app.launch()
         let control = app.buttons["player.danmaku"]

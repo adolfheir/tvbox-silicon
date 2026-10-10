@@ -10,8 +10,18 @@ import UniformTypeIdentifiers
     var time = 0.0
     var videoSize = CGSize.zero
     var offset = 0.0
-    var enabled = UserDefaults.standard.object(forKey: "danmakuEnabled") as? Bool ?? true {
-        didSet { UserDefaults.standard.set(enabled, forKey: "danmakuEnabled") }
+    var enabled = UserDefaults.standard.object(forKey: "danmakuEnabled") == nil ? true : UserDefaults.standard.bool(forKey: "danmakuEnabled") {
+        didSet {
+            UserDefaults.standard.set(enabled, forKey: "danmakuEnabled")
+            if !enabled { cancelAutomatic() }
+            else if comments.isEmpty { startAutomatic(automaticContext) }
+        }
+    }
+    var automatic = UserDefaults.standard.object(forKey: "danmakuAutoMatch") == nil ? true : UserDefaults.standard.bool(forKey: "danmakuAutoMatch") {
+        didSet {
+            UserDefaults.standard.set(automatic, forKey: "danmakuAutoMatch")
+            if automatic { startAutomatic(automaticContext) } else { cancelAutomatic() }
+        }
     }
     var opacity = UserDefaults.standard.object(forKey: "danmakuOpacity") as? Double ?? 0.85 {
         didSet { UserDefaults.standard.set(opacity, forKey: "danmakuOpacity") }
@@ -20,8 +30,54 @@ import UniformTypeIdentifiers
         didSet { UserDefaults.standard.set(fontSize, forKey: "danmakuFontSize") }
     }
     private var generation = UUID()
+    private var automaticTask: Task<Void, Never>?
+    private var automaticContext: PlaybackHistoryContext?
+    private(set) var automaticState = "idle"
+
+    func startAutomatic(_ context: PlaybackHistoryContext?) {
+        cancelAutomatic()
+        automaticContext = context
+        guard let context, automatic, enabled, comments.isEmpty else { return }
+        let active = generation
+        automaticState = "searching"
+        automaticTask = Task { [weak self] in
+            guard let self else { return }
+            defer { if self.generation == active { self.automaticTask = nil } }
+            do {
+                let client = try DanmakuClient(address: UserDefaults.standard.string(forKey: "danmakuServer") ?? DanmakuClient.defaultServer)
+                let results = try await client.search(context.videoName)
+                try Task.checkCancellation()
+                guard self.generation == active else { return }
+                guard let anime = DanmakuMatcher.anime(title: context.videoName, in: results) else {
+                    self.automaticState = "unmatched"; return
+                }
+                let episodes = try await client.episodes(anime)
+                try Task.checkCancellation()
+                guard self.generation == active else { return }
+                guard let episode = DanmakuMatcher.episode(name: context.episodeName, in: episodes) else {
+                    self.automaticState = "unmatched"; return
+                }
+                let comments = try await client.comments(episode)
+                try Task.checkCancellation()
+                guard self.generation == active, self.enabled, self.automatic else { return }
+                self.comments = comments
+                self.track = comments.isEmpty ? "" : anime.title + " · " + episode.title
+                self.offset = 0; self.revision = UUID()
+                self.automaticState = comments.isEmpty ? "unmatched" : "loaded"
+            } catch {
+                guard self.generation == active else { return }
+                // Optional overlay failures never interrupt video playback or show alerts.
+                self.automaticState = error is CancellationError ? "idle" : "unavailable"
+            }
+        }
+    }
+
+    private func cancelAutomatic() {
+        generation = UUID(); automaticTask?.cancel(); automaticTask = nil; automaticState = "idle"
+    }
 
     func load(_ episode: DanmakuEpisode, anime: DanmakuAnime, client: DanmakuClient) async throws {
+        cancelAutomatic(); automaticContext = nil
         let active = UUID(); generation = active
         let comments = try await client.comments(episode)
         try Task.checkCancellation()
@@ -31,7 +87,8 @@ import UniformTypeIdentifiers
     }
 
     func clear() {
-        generation = UUID(); comments = []; track = ""; offset = 0; time = 0; revision = UUID()
+        cancelAutomatic(); automaticContext = nil
+        comments = []; track = ""; offset = 0; time = 0; revision = UUID()
     }
 
     func importFile(_ url: URL) throws {
@@ -40,7 +97,8 @@ import UniformTypeIdentifiers
         let size = try url.resourceValues(forKeys: [.fileSizeKey]).fileSize ?? 0
         guard size <= DanmakuParser.maximumBytes else { throw TVError.unsupported(L10n.text("The danmaku file is too large.")) }
         let parsed = try DanmakuParser.parse(Data(contentsOf: url, options: .mappedIfSafe))
-        generation = UUID(); comments = parsed; track = url.deletingPathExtension().lastPathComponent
+        cancelAutomatic(); automaticContext = nil
+        comments = parsed; track = url.deletingPathExtension().lastPathComponent
         offset = 0; revision = UUID(); enabled = true
     }
 }
@@ -120,6 +178,10 @@ struct DanmakuSettingsView: View {
             Form {
                 Section {
                     Toggle(L10n.text("Show Danmaku"), isOn: $model.enabled).accessibilityIdentifier("danmaku.enabled")
+                    Toggle(L10n.text("Automatically match the current episode"), isOn: $model.automatic)
+                        .accessibilityIdentifier("danmaku.automatic")
+                    Text(L10n.text("Matching comments appear automatically. If none match or the service is unavailable, the video stays clear."))
+                        .font(.caption).foregroundStyle(.secondary)
                     if !model.track.isEmpty {
                         Text(model.track).font(.subheadline)
                         Text(L10n.text("Loaded %lld comments", model.comments.count)).foregroundStyle(.secondary)

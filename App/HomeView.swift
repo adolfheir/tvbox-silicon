@@ -14,6 +14,7 @@ struct HomeView: View {
         ScrollViewReader { reader in
             ScrollView {
                 VStack(alignment: .leading, spacing: Layout.sectionSpacing) {
+                    if !store.playbackHistory.entries.isEmpty { continueWatching }
                     if let config = store.subscription {
                         RecommendationsView(config: config)
                         if !store.favorites.isEmpty { favorites }
@@ -104,6 +105,19 @@ struct HomeView: View {
     }
 
     // MARK: Sections
+
+    private var continueWatching: some View {
+        VStack(alignment: .leading, spacing: Layout.headerSpacing) {
+            SectionHeader(title: L10n.text("Continue Watching")) { store.section = .history }
+            ChipRow {
+                HStack(spacing: Layout.cardSpacing) {
+                    ForEach(store.playbackHistory.entries.prefix(8)) { entry in
+                        PlaybackHistoryButton(entry: entry).padding(14).frame(width: 320).contentPanel()
+                    }
+                }.padding(.vertical, 6)
+            }
+        }
+    }
 
     private var favorites: some View {
         VStack(alignment: .leading, spacing: Layout.headerSpacing) {

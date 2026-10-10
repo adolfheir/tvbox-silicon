@@ -2,6 +2,32 @@ import Foundation
 import Testing
 @testable import TVCore
 
+@Test func automaticDanmakuRequiresOneUnambiguousTitleAndSeason() {
+    let original = DanmakuAnime(id: "1", title: "葬送的芙莉莲", type: "TV")
+    let otherSeason = DanmakuAnime(id: "2", title: "葬送的芙莉莲 第2季", type: "TV")
+    #expect(DanmakuMatcher.anime(title: " 葬送的芙莉莲 ", in: [otherSeason, original])?.id == "1")
+    #expect(DanmakuMatcher.anime(title: "不存在", in: [original]) == nil)
+    #expect(DanmakuMatcher.anime(title: "葬送的芙莉莲", in: [original, DanmakuAnime(id: "3", title: original.title, type: "Movie")]) == nil)
+}
+
+@Test func automaticDanmakuUnderstandsEpisodeNumbersWithoutGuessingSpecialsOrQuality() {
+    for (name, expected) in [("1",1), ("第01集",1), ("第十二话",12), ("第两百零一集",201), ("EP. 02",2), ("Episode 3 - title",3)] {
+        #expect(DanmakuMatcher.episodeNumber(name) == expected)
+    }
+    for name in ["1080P", "OVA1", "SP1", "S02E01", "正片", "0", "未知"] {
+        #expect(DanmakuMatcher.episodeNumber(name) == nil)
+    }
+}
+
+@Test func automaticDanmakuMatchesCurrentEpisodeAndKeepsMissingTracksEmpty() {
+    let episodes = [DanmakuEpisode(id: "1", title: "第1话 冒险结束"), DanmakuEpisode(id: "2", title: "第2话")]
+    #expect(DanmakuMatcher.episode(name: "第 2 集", in: episodes)?.id == "2")
+    #expect(DanmakuMatcher.episode(name: "3", in: episodes) == nil)
+    #expect(DanmakuMatcher.episode(name: "正片", in: episodes) == nil)
+    #expect(DanmakuMatcher.episode(name: "正片", in: [episodes[0]])?.id == "1")
+    #expect(DanmakuMatcher.episode(name: "1", in: [episodes[0], DanmakuEpisode(id: "3", title: "第1话 其他版本")]) == nil)
+}
+
 @Test func danmakuRejectsMalformedRowsAndDoesNotConfuseColorWithFontSize() throws {
     let data = Data(#"""
     {"comments":[

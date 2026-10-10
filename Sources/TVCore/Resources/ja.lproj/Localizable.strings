@@ -454,3 +454,23 @@
 "Save" = "保存";
 "Import Danmaku File" = "弾幕ファイルを読み込む";
 "Import Bilibili XML or Dandanplay JSON from Files. Imported comments do not require a network connection." = "ファイルからBilibili XMLまたはDandanplay JSONを読み込みます。読み込んだ弾幕はオフラインで表示できます。";
+
+// Playback history and resume
+"Playback History" = "再生履歴";
+"Continue Watching" = "視聴を続ける";
+"No Playback History Yet" = "再生履歴はまだありません";
+"Videos you watch appear here. Tap a record to continue from your saved position." = "視聴した動画がここに表示されます。履歴を選ぶと前回の位置から再生します。";
+"Remove from history" = "履歴から削除";
+"Clear history" = "再生履歴を消去";
+"Clear all playback history?" = "すべての再生履歴を消去しますか？";
+"Finished · Watch again" = "視聴済み · もう一度再生";
+"Continue from %@" = "%@ から再生";
+"Unable to save playback history: %@" = "再生履歴を保存できません：%@";
+"This history source is no longer in the current subscription. Restore that subscription to continue." = "現在の購読にこの配信元がありません。元の購読を復元してください。";
+"The saved episode is no longer available from this source. Choose an episode again." = "保存したエピソードが見つかりません。もう一度選択してください。";
+"Unable to resume playback: %@" = "続きから再生できません：%@";
+"The player could not restore the saved position. Try again." = "前回の再生位置を復元できませんでした。もう一度お試しください。";
+
+// Automatic episode matching
+"Automatically match the current episode" = "現在のエピソードを自動検索";
+"Matching comments appear automatically. If none match or the service is unavailable, the video stays clear." = "作品とエピソードが一致すると弾幕を表示します。一致しない場合やサービスを利用できない場合は表示しません。";

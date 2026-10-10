@@ -454,3 +454,23 @@
 "Save" = "儲存";
 "Import Danmaku File" = "匯入彈幕檔案";
 "Import Bilibili XML or Dandanplay JSON from Files. Imported comments do not require a network connection." = "從檔案 App 匯入 Bilibili XML 或彈彈play JSON，匯入後無需連線即可顯示。";
+
+// Playback history and resume
+"Playback History" = "播放記錄";
+"Continue Watching" = "繼續觀看";
+"No Playback History Yet" = "尚無播放記錄";
+"Videos you watch appear here. Tap a record to continue from your saved position." = "看過的影片會顯示在這裡，點選記錄即可從上次進度繼續播放。";
+"Remove from history" = "刪除此記錄";
+"Clear history" = "清空播放記錄";
+"Clear all playback history?" = "清空所有播放記錄？";
+"Finished · Watch again" = "已看完 · 重新播放";
+"Continue from %@" = "從 %@ 繼續播放";
+"Unable to save playback history: %@" = "播放記錄儲存失敗：%@";
+"This history source is no longer in the current subscription. Restore that subscription to continue." = "目前訂閱中已沒有此記錄的影片來源，請恢復原訂閱後繼續觀看。";
+"The saved episode is no longer available from this source. Choose an episode again." = "此來源已沒有記錄中的劇集，請重新選擇集數。";
+"Unable to resume playback: %@" = "無法繼續播放：%@";
+"The player could not restore the saved position. Try again." = "播放器無法恢復上次進度，請重試。";
+
+// Automatic episode matching
+"Automatically match the current episode" = "自動配對目前集數";
+"Matching comments appear automatically. If none match or the service is unavailable, the video stays clear." = "配對到目前影片和集數後自動顯示彈幕；無配對或服務無法使用時不顯示。";

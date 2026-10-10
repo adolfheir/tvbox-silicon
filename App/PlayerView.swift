@@ -5,6 +5,7 @@ import TVCore
 struct PlaybackView: View {
     let channel: Channel
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.scenePhase) private var scenePhase
     @State private var session = PlaybackSession()
     @State private var showsChrome = true
     @State private var hideTask: Task<Void, Never>?
@@ -33,6 +34,24 @@ struct PlaybackView: View {
             chrome.opacity(chromeVisible ? 1 : 0).allowsHitTesting(chromeVisible)
             #endif
             status
+            #if DEBUG
+            if UserDefaults.standard.bool(forKey: "qaPlaybackProbe") {
+                VStack {
+                    Text(EpisodeSkipSettings.formatTime(session.position))
+                        .accessibilityIdentifier("player.qa.position")
+                        .accessibilityValue(String(session.position))
+                    Text("Resume")
+                        .accessibilityIdentifier("player.qa.resume")
+                        .accessibilityValue(String(session.restoredPosition ?? -1))
+                    Text(session.danmaku.automaticState)
+                        .accessibilityIdentifier("player.qa.danmaku")
+                        .accessibilityValue(String(session.danmaku.comments.count))
+                }
+                .font(.caption2).padding(8).background(.black.opacity(0.6))
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
+                .allowsHitTesting(false)
+            }
+            #endif
         }
         .preferredColorScheme(.dark)
         #if os(macOS)
@@ -70,6 +89,7 @@ struct PlaybackView: View {
         }
         #endif
         .onDisappear { hideTask?.cancel(); session.stop() }
+        .onChange(of: scenePhase) { _, phase in if phase != .active { session.saveHistory() } }
         #if !os(tvOS)
         .sheet(isPresented: $showsDanmaku) {
             DanmakuSettingsView(model: session.danmaku, channelName: channel.name)
@@ -102,6 +122,7 @@ struct PlaybackView: View {
                 Button { dismiss() } label: { Image(systemName: "xmark").font(.headline).frame(width: 22, height: 22) }
                     .controlButton().buttonBorderShape(.circle).controlSize(.large)
                     .accessibilityLabel(L10n.text("Close"))
+                    .accessibilityIdentifier("player.close")
                     .keyboardShortcut(.cancelAction)
             }
             // AVKit keeps its volume and fullscreen controls at the top corners.

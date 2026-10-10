@@ -2,7 +2,7 @@ import SwiftUI
 import TVCore
 
 enum AppSection: String, CaseIterable, Identifiable, Hashable {
-    case home = "Watch Now", live = "Live TV", search = "Global Search", sites = "Sources", favorites = "Favorites", settings = "Settings", more = "More"
+    case home = "Watch Now", live = "Live TV", search = "Global Search", sites = "Sources", history = "Playback History", favorites = "Favorites", settings = "Settings", more = "More"
     var id: String { rawValue }
     var title: String { L10n.text(rawValue) }
     var icon: String {
@@ -12,6 +12,7 @@ enum AppSection: String, CaseIterable, Identifiable, Hashable {
         case .live: "dot.radiowaves.left.and.right"
         case .sites: "square.grid.2x2.fill"
         case .favorites: "heart.fill"
+        case .history: "clock.arrow.circlepath"
         case .settings: "slider.horizontal.3"
         case .more: "ellipsis"
         }
@@ -33,7 +34,7 @@ struct RootView: View {
         #if os(iOS)
         if sizeClass == .compact { return [.home, .live, .search, .sites, .more] }
         #endif
-        return [.home, .live, .search, .sites, .favorites, .settings]
+        return [.home, .live, .search, .sites, .history, .favorites, .settings]
     }
     var body: some View {
         @Bindable var store = store
@@ -77,14 +78,14 @@ struct RootView: View {
         .adaptiveTabMinimization()
         #if os(iOS)
         .onChange(of: store.section) { _, section in
-            if sizeClass == .compact && (section == .favorites || section == .settings) {
+            if sizeClass == .compact && (section == .favorites || section == .settings || section == .history) {
                 moreSection = section; morePath = NavigationPath([section])
                 store.section = .more
             }
         }
         .onChange(of: sizeClass) { _, size in
             if size != .compact && store.section == .more { store.section = morePath.isEmpty ? .settings : moreSection }
-            else if size == .compact && (store.section == .favorites || store.section == .settings) {
+            else if size == .compact && (store.section == .favorites || store.section == .settings || store.section == .history) {
                 moreSection = store.section; morePath = NavigationPath([store.section]); store.section = .more
             }
         }
@@ -107,8 +108,7 @@ struct RootView: View {
             NavigationStack(path: $morePath) {
                 content(.more).routeDestinations()
                     .navigationDestination(for: AppSection.self) { destination in
-                        if destination == .favorites { FavoritesView() }
-                        else { SettingsView() }
+                        sectionRoot(destination)
                     }
             }
         } else {
@@ -133,9 +133,11 @@ struct RootView: View {
         case .live: LiveView()
         case .sites: SitesView()
         case .favorites: FavoritesView()
+        case .history: PlaybackHistoryView()
         case .settings: SettingsView()
         case .more:
             List {
+                NavigationLink(value: AppSection.history) { Label(AppSection.history.title, systemImage: AppSection.history.icon) }
                 NavigationLink(value: AppSection.favorites) { Label(AppSection.favorites.title, systemImage: AppSection.favorites.icon) }
                 NavigationLink(value: AppSection.settings) { Label(AppSection.settings.title, systemImage: AppSection.settings.icon) }
             }
@@ -169,11 +171,11 @@ private struct PlayerPresentation: ViewModifier {
 }
 
 #if os(macOS)
-/// Content-first sidebar: grouped rows, neutral selection, and ⌘1–⌘6 to switch sections.
+/// Content-first sidebar: grouped rows, neutral selection, and keyboard shortcuts.
 private struct MacSidebar: View {
     @Environment(Store.self) private var store
     private var groups: [(title: String, items: [AppSection])] {
-        [(L10n.text("Browse"), [.home, .search, .live, .sites]), (L10n.text("Library"), [.favorites, .settings])]
+        [(L10n.text("Browse"), [.home, .search, .live, .sites]), (L10n.text("Library"), [.history, .favorites, .settings])]
     }
 
     var body: some View {

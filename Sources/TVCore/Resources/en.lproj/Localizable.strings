@@ -454,3 +454,23 @@
 "Save" = "Save";
 "Import Danmaku File" = "Import Danmaku File";
 "Import Bilibili XML or Dandanplay JSON from Files. Imported comments do not require a network connection." = "Import Bilibili XML or Dandanplay JSON from Files. Imported comments do not require a network connection.";
+
+// Playback history and resume
+"Playback History" = "Playback History";
+"Continue Watching" = "Continue Watching";
+"No Playback History Yet" = "No Playback History Yet";
+"Videos you watch appear here. Tap a record to continue from your saved position." = "Videos you watch appear here. Tap a record to continue from your saved position.";
+"Remove from history" = "Remove from history";
+"Clear history" = "Clear history";
+"Clear all playback history?" = "Clear all playback history?";
+"Finished · Watch again" = "Finished · Watch again";
+"Continue from %@" = "Continue from %@";
+"Unable to save playback history: %@" = "Unable to save playback history: %@";
+"This history source is no longer in the current subscription. Restore that subscription to continue." = "This history source is no longer in the current subscription. Restore that subscription to continue.";
+"The saved episode is no longer available from this source. Choose an episode again." = "The saved episode is no longer available from this source. Choose an episode again.";
+"Unable to resume playback: %@" = "Unable to resume playback: %@";
+"The player could not restore the saved position. Try again." = "The player could not restore the saved position. Try again.";
+
+// Automatic episode matching
+"Automatically match the current episode" = "Automatically match the current episode";
+"Matching comments appear automatically. If none match or the service is unavailable, the video stays clear." = "Matching comments appear automatically. If none match or the service is unavailable, the video stays clear.";
