@@ -1,6 +1,76 @@
 import XCTest
 
 final class PlayerControlsUITests: XCTestCase {
+    @MainActor func testHorizontalSwipeSeeksWithoutChangingPlaybackState() throws {
+        continueAfterFailure = false
+        let app = XCUIApplication()
+        app.launchArguments = ["-qaSection", "history", "-qaPage", "play-source:qa-standard",
+            "-qaSubscription", "http://127.0.0.1:8776/config.json", "-qaPlaybackProbe", "1",
+            "-qaResetPlayerSettings", "1", "-qaStartAt", "90", "-autoPlayNextEpisode", "0",
+            "-qaMute", "1", "-danmakuAutoMatch", "0", "-AppleLanguages", "(zh-Hans)"]
+        app.launch()
+        let play = app.buttons["player.playPause"]
+        XCTAssertTrue(play.waitForExistence(timeout: 30), app.debugDescription)
+        waitValue(play, "playing")
+        play.tap(); waitValue(play, "paused")
+        let origin = position(app)
+        drag(app, from: CGVector(dx: 0.2, dy: 0.33), to: CGVector(dx: 0.6, dy: 0.33))
+        waitPosition(app, near: origin + 48)
+        waitValue(play, "paused")
+        XCTAssertFalse(app.otherElements["player.seekPreview"].exists)
+        drag(app, from: CGVector(dx: 0.6, dy: 0.33), to: CGVector(dx: 0.2, dy: 0.33))
+        waitPosition(app, near: origin)
+        let beforeVertical = position(app)
+        drag(app, from: CGVector(dx: 0.2, dy: 0.3), to: CGVector(dx: 0.2, dy: 0.6))
+        XCTAssertEqual(position(app), beforeVertical, accuracy: 1)
+        app.buttons["player.lock"].tap()
+        XCTAssertTrue(app.buttons["player.unlock"].waitForExistence(timeout: 5))
+        drag(app, from: CGVector(dx: 0.2, dy: 0.33), to: CGVector(dx: 0.6, dy: 0.33))
+        XCTAssertEqual(position(app), beforeVertical, accuracy: 1)
+        app.buttons["player.unlock"].tap(); waitValue(play, "paused")
+        play.tap(); waitValue(play, "playing")
+        // Let the ordinary chrome hide; seeking must still work on the video.
+        expectation(for: NSPredicate(format: "exists == false"), evaluatedWith: play)
+        waitForExpectations(timeout: 8)
+        let beforePlaying = position(app)
+        drag(app, from: CGVector(dx: 0.2, dy: 0.33), to: CGVector(dx: 0.6, dy: 0.33))
+        waitPosition(app, near: beforePlaying + 48, tolerance: 5)
+        XCTAssertTrue(play.waitForExistence(timeout: 5))
+        waitValue(play, "playing")
+        // Accessibility polling may outlast the 3.5-second chrome timeout.
+        // The surface double-tap works with either visible or hidden controls.
+        app.coordinate(withNormalizedOffset: CGVector(dx: 0.25, dy: 0.4)).doubleTap()
+        waitValue(play, "paused")
+        app.coordinate(withNormalizedOffset: CGVector(dx: 0.25, dy: 0.4)).doubleTap()
+        waitValue(play, "playing")
+        play.tap(); waitValue(play, "paused")
+        app.sliders["player.progress"].adjust(toNormalizedSliderPosition: 0.1)
+        waitPosition(app, near: 30)
+        drag(app, from: CGVector(dx: 0.8, dy: 0.33), to: CGVector(dx: 0.1, dy: 0.33))
+        waitPosition(app, near: 0, tolerance: 1)
+        waitValue(play, "paused")
+        app.sliders["player.progress"].adjust(toNormalizedSliderPosition: 0.95)
+        // XCUI slider adjustment is approximate; only the swipe's final seek
+        // is required to be exact at the duration boundary.
+        expectation(for: NSPredicate { _, _ in self.position(app) >= 270 && self.position(app) < 300 }, evaluatedWith: nil)
+        waitForExpectations(timeout: 10)
+        drag(app, from: CGVector(dx: 0.2, dy: 0.33), to: CGVector(dx: 0.6, dy: 0.33))
+        waitPosition(app, near: 300, tolerance: 1)
+        waitValue(play, "paused")
+        let image = XCTAttachment(screenshot: app.screenshot())
+        image.name = "Horizontal seeking keeps paused playback and clamps to duration"
+        image.lifetime = .keepAlways; add(image)
+    }
+
+    @MainActor private func drag(_ app: XCUIApplication, from: CGVector, to: CGVector) {
+        app.coordinate(withNormalizedOffset: from).press(forDuration: 0.05,
+            thenDragTo: app.coordinate(withNormalizedOffset: to), withVelocity: .slow, thenHoldForDuration: 0.1)
+    }
+    @MainActor private func waitPosition(_ app: XCUIApplication, near expected: Double, tolerance: Double = 3) {
+        expectation(for: NSPredicate { _, _ in abs(self.position(app) - expected) <= tolerance }, evaluatedWith: nil)
+        waitForExpectations(timeout: 10)
+    }
+
     @MainActor func testResponsiveTransportSelectionAutoAdvanceAndWakeLock() throws {
         continueAfterFailure = false
         let app = XCUIApplication()

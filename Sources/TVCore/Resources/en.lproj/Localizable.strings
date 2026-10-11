@@ -513,3 +513,4 @@
 "The media playlist contains too many redirects." = "The media playlist contains too many redirects.";
 "The source does not honor media byte ranges." = "The source does not honor media byte ranges.";
 "The source returned a page instead of media data." = "The source returned a page instead of media data.";
+"Release to seek" = "Release to seek";

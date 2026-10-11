@@ -16,6 +16,10 @@ struct PlaybackView: View {
     @State private var panel: PlayerPanel?
     @State private var scrubbing = false
     @State private var scrubPosition = 0.0
+    @State private var swipe: PlaybackScrub?
+    @State private var swipeTarget = 0.0
+    @State private var swipeRejected = false
+    @GestureState private var swipeTouchActive = false
     @State private var fillsFrame = false
     @State private var previousIdleTimer: Bool?
     @State private var controlsLocked = false
@@ -25,7 +29,7 @@ struct PlaybackView: View {
 
     private var current: Channel { store.playing ?? channel }
     private var controlsVisible: Bool {
-        if controlsLocked { return false }
+        if controlsLocked || swipe != nil { return false }
         #if DEBUG
         if UserDefaults.standard.bool(forKey: "qaPlayerControls") { return true }
         #endif
@@ -37,9 +41,10 @@ struct PlaybackView: View {
             Color.black.ignoresSafeArea()
             NativePlayerView(player: session.player, danmaku: session.danmaku, fillsFrame: fillsFrame)
                 .ignoresSafeArea().allowsHitTesting(false)
-            Color.clear.contentShape(Rectangle())
+            GeometryReader { geometry in
+              Color.clear.contentShape(Rectangle())
                 .gesture(TapGesture(count: 2).exclusively(before: TapGesture()).onEnded { result in
-                    guard !controlsLocked else { return }
+                    guard !controlsLocked, swipe == nil else { return }
                     switch result {
                     case .first: session.togglePlayback(); poke()
                     case .second:
@@ -47,8 +52,11 @@ struct PlaybackView: View {
                         else { poke() }
                     }
                 })
+                .simultaneousGesture(seekGesture(width: geometry.size.width))
                 .accessibilityIdentifier("player.surface")
+            }
             if controlsVisible { controls.transition(.opacity) }
+            if let swipe { seekPreview(swipe) }
             if controlsLocked {
                 iconButton("lock.fill", L10n.text("Unlock controls"), id: "player.unlock") {
                     controlsLocked = false; poke()
@@ -82,12 +90,23 @@ struct PlaybackView: View {
         }
         .onChange(of: store.playing) { _, channel in if let channel { start(channel) } }
         .onChange(of: session.isPlaying) { _, playing in if playing { poke() } else { showsControls = true } }
+        .onChange(of: swipeTouchActive) { _, active in
+            if !active {
+                // onEnded commits first; cancellation has no onEnded callback.
+                Task { @MainActor in
+                    guard !swipeTouchActive else { return }
+                    resetSwipe()
+                }
+            }
+        }
         .onChange(of: scenePhase) { _, phase in
+            if phase != .active { resetSwipe(rejectRemainingTouch: true) }
             updateWakeLock()
             session.setPlaybackActive(phase == .active)
             if phase != .active { store.cancelEpisodeSelection() }
         }
         .onDisappear {
+            resetSwipe(rejectRemainingTouch: true)
             hideTask?.cancel(); session.onPlaybackEnded = nil; session.stop()
             store.cancelEpisodeSelection()
             UIApplication.shared.isIdleTimerDisabled = previousIdleTimer ?? false
@@ -269,6 +288,7 @@ struct PlaybackView: View {
     }
 
     private func start(_ channel: Channel) {
+        resetSwipe(rejectRemainingTouch: true)
         scrubbing = false
         session.start(channel)
         session.onPlaybackEnded = {
@@ -296,9 +316,63 @@ struct PlaybackView: View {
         showsControls = true; hideTask?.cancel()
         hideTask = Task {
             try? await Task.sleep(for: .seconds(3.5))
-            guard !Task.isCancelled, session.isPlaying, panel == nil, !scrubbing else { return }
+            guard !Task.isCancelled, session.isPlaying, panel == nil, !scrubbing, swipe == nil else { return }
             withAnimation(.easeOut(duration: 0.2)) { showsControls = false }
         }
+    }
+
+    private var canSwipeSeek: Bool {
+        !controlsLocked && !session.loading && session.error == nil && !scrubbing &&
+        panel == nil && !showsSkipMark && store.resolvingEpisode == nil && scenePhase == .active &&
+        session.duration.isFinite && session.duration > 0
+    }
+
+    private func seekGesture(width: CGFloat) -> some Gesture {
+        DragGesture(minimumDistance: 12)
+            .updating($swipeTouchActive) { _, active, _ in active = true }
+            .onChanged { value in
+                guard canSwipeSeek, !swipeRejected else { return }
+                if swipe == nil {
+                    guard PlaybackScrub.isHorizontal(x: value.translation.width, y: value.translation.height) else {
+                        swipeRejected = true; return
+                    }
+                    swipe = PlaybackScrub(position: session.player.currentTime().seconds,
+                                          duration: session.duration, width: width)
+                    hideTask?.cancel()
+                }
+                if let swipe { swipeTarget = swipe.target(translation: value.translation.width) }
+            }
+            .onEnded { value in
+                if canSwipeSeek, let swipe {
+                    session.seek(to: swipe.target(translation: value.translation.width))
+                }
+                resetSwipe()
+            }
+    }
+
+    private func resetSwipe(rejectRemainingTouch: Bool = false) {
+        let wasSeeking = swipe != nil
+        swipe = nil; swipeRejected = rejectRemainingTouch && swipeTouchActive
+        if wasSeeking { poke() }
+    }
+
+    private func seekPreview(_ swipe: PlaybackScrub) -> some View {
+        let delta = swipeTarget - swipe.origin
+        return VStack(spacing: 12) {
+            HStack(spacing: 10) {
+                Image(systemName: delta < 0 ? "backward.fill" : "forward.fill")
+                Text("\(delta < 0 ? "−" : "+")\(EpisodeSkipSettings.formatTime(abs(delta)))")
+            }.font(.title2.weight(.semibold))
+            Text("\(EpisodeSkipSettings.formatTime(swipeTarget)) / \(EpisodeSkipSettings.formatTime(swipe.duration))")
+                .font(.headline)
+            ProgressView(value: swipeTarget, total: swipe.duration).tint(.white)
+            Text(L10n.text("Release to seek")).font(.caption).foregroundStyle(.white.opacity(0.8))
+        }
+        .monospacedDigit().padding(24).frame(width: 270)
+        .foregroundStyle(.white).background(.black.opacity(0.75), in: RoundedRectangle(cornerRadius: 16))
+        .allowsHitTesting(false).accessibilityElement(children: .ignore)
+        .accessibilityLabel(L10n.text("Playback position"))
+        .accessibilityValue(String(swipeTarget)).accessibilityIdentifier("player.seekPreview")
     }
 
     private func updateWakeLock() {

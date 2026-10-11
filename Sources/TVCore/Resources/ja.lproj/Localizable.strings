@@ -513,3 +513,4 @@
 "The media playlist contains too many redirects." = "メディアプレイリストの転送回数が多すぎます。";
 "The source does not honor media byte ranges." = "ソースが必要な部分ダウンロードに対応していません。";
 "The source returned a page instead of media data." = "ソースが動画以外のページやデータを返しました。";
+"Release to seek" = "指を離して移動";

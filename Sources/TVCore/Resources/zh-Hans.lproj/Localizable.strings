@@ -513,3 +513,4 @@
 "The media playlist contains too many redirects." = "视频播放列表跳转层数过多。";
 "The source does not honor media byte ranges." = "视频源不支持所需的分段下载。";
 "The source returned a page instead of media data." = "视频源返回了网页或数据接口，无法测量媒体速度。";
+"Release to seek" = "松手跳转";
