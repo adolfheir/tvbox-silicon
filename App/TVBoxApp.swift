@@ -15,6 +15,18 @@ import TVCore
     var body: some Scene {
         WindowGroup {
             RootView().environment(store)
+                #if DEBUG && os(iOS)
+                .overlay(alignment: .bottomLeading) {
+                    if UserDefaults.standard.bool(forKey: "qaPlaybackProbe") {
+                        TimelineView(.periodic(from: .now, by: 1)) { _ in
+                            Text("Idle timer").font(.caption2)
+                                .accessibilityIdentifier("app.qa.awake")
+                                .accessibilityValue(UIApplication.shared.isIdleTimerDisabled ? "1" : "0")
+                                .allowsHitTesting(false)
+                        }
+                    }
+                }
+                #endif
                 #if !os(tvOS)
                 // tvOS draws plain buttons and section links in the tint, so it keeps the neutral default.
                 .tint(Brand.accent)

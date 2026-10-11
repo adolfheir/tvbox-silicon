@@ -164,6 +164,10 @@ private struct PlayerPresentation: ViewModifier {
                 playerWindow.close()
             }
         }
+        #elseif os(iOS)
+        content.fullScreenCover(isPresented: Binding(get: { playing != nil }, set: { if !$0 { playing = nil } })) {
+            if let playing { PlaybackView(channel: playing) }
+        }
         #else
         content.fullScreenCover(item: $playing) { PlaybackView(channel: $0) }
         #endif

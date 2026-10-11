@@ -48,3 +48,36 @@ import Testing
     let legacy = Data(#"{"name":"Live","group":"TV","url":"https://example.com/live.m3u8","headers":{}}"#.utf8)
     #expect(try JSONDecoder().decode(Channel.self, from: legacy).skipScope == nil)
 }
+
+@Test func globalSkippingUsesTheSameDurationsAcrossFilmsWithoutOverwritingLegacySettings() throws {
+    let suite = "global-skip-tests." + UUID().uuidString
+    let defaults = try #require(UserDefaults(suiteName: suite))
+    defer { defaults.removePersistentDomain(forName: suite) }
+    let legacy = EpisodeSkipSettings(enabled: true, introEnd: 30)
+    legacy.save(scope: "old-film", defaults: defaults)
+    #expect(EpisodeSkipSettings.loadGlobal(defaults: defaults) == EpisodeSkipSettings())
+    let settings = EpisodeSkipSettings(enabled: true, introEnd: 90, outroLength: 120)
+    settings.saveGlobal(defaults: defaults)
+    let loaded = EpisodeSkipSettings.loadGlobal(defaults: defaults)
+    #expect(loaded == settings)
+    #expect(EpisodeSkipSettings.load(scope: "old-film", defaults: defaults) == legacy)
+    for duration in [2700.0, 3000.0] {
+        var pass = EpisodeSkipPass()
+        #expect(pass.target(time: 0, duration: duration, playing: true, settings: loaded) == 90)
+        #expect(pass.target(time: duration - 120, duration: duration, playing: true, settings: loaded) == duration - 0.05)
+    }
+}
+
+@Test func enabledGlobalSkippingWithoutTimesRemainsEnabledButDoesNotSeek() throws {
+    let suite = "empty-global-skip-tests." + UUID().uuidString
+    let defaults = try #require(UserDefaults(suiteName: suite))
+    defer { defaults.removePersistentDomain(forName: suite) }
+    EpisodeSkipSettings(enabled: true).saveGlobal(defaults: defaults)
+    let settings = EpisodeSkipSettings.loadGlobal(defaults: defaults)
+    #expect(settings.enabled)
+    for duration in [300.0, 2700.0] {
+        var pass = EpisodeSkipPass()
+        #expect(pass.target(time: 0, duration: duration, playing: true, settings: settings) == nil)
+        #expect(pass.target(time: duration - 1, duration: duration, playing: true, settings: settings) == nil)
+    }
+}

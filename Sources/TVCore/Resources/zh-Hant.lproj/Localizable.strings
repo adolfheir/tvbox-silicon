@@ -474,3 +474,42 @@
 // Automatic episode matching
 "Automatically match the current episode" = "自動配對目前集數";
 "Matching comments appear automatically. If none match or the service is unavailable, the video stays clear." = "配對到目前影片和集數後自動顯示彈幕；無配對或服務無法使用時不顯示。";
+
+// Player controls and episode navigation
+"Pause" = "暫停";
+"Loading %@…" = "正在載入%@…";
+"Playback position" = "播放進度";
+"Next episode" = "下一集";
+"Auto-play next episode" = "自動播放下一集";
+"Playback speed" = "播放速度";
+"Playback line" = "播放線路";
+"Lock controls" = "鎖定";
+"Unlock controls" = "解鎖";
+"Intro" = "片頭";
+"Outro" = "片尾";
+"Confirm" = "確認";
+"Use %@ as the intro end?" = "將 %@ 設為片頭結束時間？";
+"Use %@ as the outro start?" = "將 %@ 設為片尾開始時間？";
+"Auto skip" = "自動跳過";
+"Outro remaining" = "片尾剩餘";
+"Applies to all films. The outro is remembered as time remaining." = "適用於所有影片。片尾按距離結束剩餘的時間儲存。";
+"Speed test" = "測速";
+"Source order" = "來源順序";
+"Fastest first" = "速度優先";
+"%lld selected" = "已選 %lld 項";
+"Stop testing" = "停止測速";
+"Test selected" = "開始測速";
+"Tested %lld of %lld" = "已測 %lld / %lld 項";
+"Tests media from the first episode and line. Speeds change with the network." = "測試首集、第一線路的媒體下載速度，結果會隨網路變化。";
+"Waiting to test" = "等待測速";
+"Resolving video…" = "解析影片中…";
+"Testing media…" = "下載測速中…";
+"Test stopped" = "測速已停止";
+"First byte %lld ms" = "首包 %lld 毫秒";
+"No episodes are available to test." = "沒有可用於測速的集數。";
+"The media playlist is too large to test." = "影片播放清單過大，無法測速。";
+"The media playlist contains a loop." = "影片播放清單存在循環位址。";
+"No media data was available to test." = "沒有可用於測速的媒體資料。";
+"The media playlist contains too many redirects." = "影片播放清單跳轉層數過多。";
+"The source does not honor media byte ranges." = "影片來源不支援所需的分段下載。";
+"The source returned a page instead of media data." = "影片來源傳回網頁或資料介面，無法測量媒體速度。";

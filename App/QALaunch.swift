@@ -27,6 +27,9 @@ enum QALaunch {
     @MainActor static func start(_ store: Store) async {
         guard section != nil || page != nil else { return }
         if UserDefaults.standard.bool(forKey: "qaResetHistory") { store.playbackHistory.clear() }
+        if UserDefaults.standard.bool(forKey: "qaResetPlayerSettings") {
+            EpisodeSkipSettings().saveGlobal(defaults: store.playbackDefaults)
+        }
         if let subscription = UserDefaults.standard.string(forKey: "qaSubscription") { await store.importSubscription(address: subscription) }
         else if store.subscription == nil { await store.importSubscription() }
         if QASweep.enabled, let config = store.subscription { Task.detached(priority: .utility) { await QASweep.run(config) } }

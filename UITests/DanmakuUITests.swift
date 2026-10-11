@@ -8,7 +8,7 @@ final class DanmakuUITests: XCTestCase {
         let app = XCUIApplication()
         app.launchArguments = ["-qaSection", "home", "-qaPage", "play-source:瓜子",
                                "-qaSubscription", "https://cdn.jsdelivr.net/gh/adolfheir/tvbox@master/fty.json",
-                               "-danmakuAutoMatch", "0",
+                               "-danmakuAutoMatch", "0", "-qaPlayerControls", "1",
                                "-qaVideoQuery", "葬送的芙莉莲", "-qaDanmakuSettings", "1", "-qaMute", "1", "-qaLegacyUI", "1", "-AppleLanguages", "(zh-Hans)"]
         app.launch()
         let control = app.buttons["player.danmaku"]
@@ -21,12 +21,17 @@ final class DanmakuUITests: XCTestCase {
         let episode = app.buttons["danmaku.episode.176170001"]
         XCTAssertTrue(episode.waitForExistence(timeout: 35), app.debugDescription)
         episode.tap()
-        XCTAssertTrue(control.waitForExistence(timeout: 35))
         // Wait for the sheet to finish its dismissal before reopening it.
         let sheetGone = NSPredicate(format: "exists == false")
         expectation(for: sheetGone, evaluatedWith: app.textFields["danmaku.keyword"])
         waitForExpectations(timeout: 35)
-        app.tap()
+        let more = app.buttons["player.more"]
+        if !more.waitForExistence(timeout: 2) {
+            app.coordinate(withNormalizedOffset: CGVector(dx: 0.25, dy: 0.4)).tap()
+            XCTAssertTrue(more.waitForExistence(timeout: 5))
+        }
+        more.tap()
+        XCTAssertTrue(control.waitForExistence(timeout: 10))
         control.tap()
         let toggle = app.switches["danmaku.enabled"]
         XCTAssertTrue(toggle.waitForExistence(timeout: 10))

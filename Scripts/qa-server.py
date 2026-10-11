@@ -12,9 +12,11 @@ from urllib.parse import parse_qs, urlparse
 root = pathlib.Path(__file__).resolve().parents[1]
 parser = argparse.ArgumentParser()
 parser.add_argument('--port', type=int, default=8765)
+parser.add_argument('--bind', default='127.0.0.1')
+parser.add_argument('--base-url', help='Reachable media origin for physical-device QA')
 parser.add_argument('--media', type=pathlib.Path, default=root/'build/player-test.mp4')
 args = parser.parse_args()
-base = f'http://127.0.0.1:{args.port}'
+base = (args.base_url or f'http://127.0.0.1:{args.port}').rstrip('/')
 lock = threading.Lock()
 counts = {}
 
@@ -39,6 +41,25 @@ class Handler(BaseHTTPRequestHandler):
         with lock:
             counts[path] = counts.get(path, 0) + 1
             count = counts[path]
+        if path == '/speed-config.json':
+            return self.send({'sites': [
+                {'key':'qa-speed-'+mode,'name':name,'type':4,'api':base+'/speed-'+mode}
+                for mode,name in [('fast','快速视频'),('slow','慢速视频'),('error','不可用视频')]
+            ]})
+        if path in ['/speed-fast','/speed-slow','/speed-error']:
+            mode=path.removeprefix('/speed-')
+            if 'play' in q:
+                if mode=='error': return self.send('Unavailable',503,'text/plain')
+                return self.send({'parse':0,'url':base+f'/speed-media/{mode}/master.m3u8','header':{'X-QA-Speed':'allowed'}})
+            video={'vod_id':'1','vod_name':'测速影片','vod_pic':base+'/poster.png',
+                   'vod_play_from':'测速线路','vod_play_url':'第 1 集$episode-1'}
+            return self.send({'list':[video],'pagecount':1})
+        if path.startswith('/speed-media/'):
+            if self.headers.get('X-QA-Speed')!='allowed': return self.send('Header required',403,'text/plain')
+            if path.endswith('/master.m3u8'):
+                return self.send('#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=1000000\nlow.m3u8\n#EXT-X-STREAM-INF:BANDWIDTH=2000000\nhigh.m3u8',mime='application/vnd.apple.mpegurl')
+            if path.endswith('/high.m3u8'):
+                return self.send('#EXTM3U\n#EXTINF:300,\nsegment.mp4\n#EXT-X-ENDLIST',mime='application/vnd.apple.mpegurl')
         if path == '/config.json':
             return self.send({'sites': [
                 {'key':'qa-index','name':'片单推荐 / Discover','type':4,'api':base+'/index','indexs':1,'searchable':0},
@@ -65,7 +86,7 @@ class Handler(BaseHTTPRequestHandler):
             return self.send('\n'.join(lines),mime='audio/x-mpegurl')
         if path == '/poster.png':
             return self.send((root/'Design/yingxia-icon.png').read_bytes(),mime='image/png')
-        if path == '/clip.mp4':
+        if path == '/clip.mp4' or (path.startswith('/speed-media/') and path.endswith('/segment.mp4')):
             media=args.media
             if not media.exists(): return self.send('Generate clip with Scripts/test-player.sh first',404,'text/plain')
             size=media.stat().st_size
@@ -81,7 +102,13 @@ class Handler(BaseHTTPRequestHandler):
             self.end_headers()
             with media.open('rb') as stream:
                 stream.seek(start)
-                try:self.wfile.write(stream.read(end-start+1))
+                try:
+                    remaining=end-start+1
+                    while remaining>0:
+                        chunk=stream.read(min(65536,remaining))
+                        if not chunk:break
+                        self.wfile.write(chunk);self.wfile.flush();remaining-=len(chunk)
+                        if '/slow/' in path:time.sleep(0.08)
                 except (BrokenPipeError,ConnectionResetError):pass
             return
         if path == '/missing.mp4': return self.send('Not found',404,'text/plain')
@@ -112,4 +139,4 @@ class Handler(BaseHTTPRequestHandler):
         return self.send('Not found',404,'text/plain')
 
 print(f'QA subscription: {base}/config.json',flush=True)
-ThreadingHTTPServer(('127.0.0.1',args.port),Handler).serve_forever()
+ThreadingHTTPServer((args.bind,args.port),Handler).serve_forever()

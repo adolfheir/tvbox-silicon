@@ -2,7 +2,7 @@
 
 This fork keeps Yingxia's native player and on-device plugin runtime, and lowers only the iPhone/iPad deployment target from 26.0 to 17.0. macOS and tvOS still target 26.0. It is an independent fork of [jo32/tvbox-silicon](https://github.com/jo32/tvbox-silicon), with the original license and attribution preserved.
 
-The integrated 1.0.2 release adds local playback history with fresh episode resolution and exact-position resuming. Build 5 verifies real-device history resuming; build 6 uses the same app source and adds physical-device JSON/XML Danmaku rendering and switch acceptance. See [FINAL-IPADOS17.md](FINAL-IPADOS17.md) for the combined feature set, package provenance and unified acceptance boundaries.
+The integrated 1.0.2 release adds local playback history with fresh episode resolution and exact-position resuming. Build 5 verifies real-device history resuming; build 6 uses the same app source and adds physical-device JSON/XML Danmaku rendering and switch acceptance. Version 1.0.3 (10) adds unified iPhone/iPad touch controls, in-player episode selection and automatic next-episode playback, direct intro/outro confirmation marks, global skipping controls and a control lock with the unlock action on the right. Search results also offer selected-video media speed comparisons and sorting. It consolidates infrequent actions into More, uses system volume controls, keeps the foreground player awake and pauses immediately when inactive or backgrounded. See [FINAL-IPADOS17.md](FINAL-IPADOS17.md) for the combined feature set, package provenance and distinct acceptance boundaries.
 
 The default subscription is:
 

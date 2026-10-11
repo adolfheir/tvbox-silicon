@@ -474,3 +474,42 @@
 // Automatic episode matching
 "Automatically match the current episode" = "自动匹配当前集数";
 "Matching comments appear automatically. If none match or the service is unavailable, the video stays clear." = "匹配到当前影片和集数后自动显示弹幕；无匹配或服务不可用时不显示。";
+
+// Player controls and episode navigation
+"Pause" = "暂停";
+"Loading %@…" = "正在加载%@…";
+"Playback position" = "播放进度";
+"Next episode" = "下一集";
+"Auto-play next episode" = "自动播放下一集";
+"Playback speed" = "播放速度";
+"Playback line" = "播放线路";
+"Lock controls" = "锁定";
+"Unlock controls" = "解锁";
+"Intro" = "片头";
+"Outro" = "片尾";
+"Confirm" = "确认";
+"Use %@ as the intro end?" = "将 %@ 设置为片头结束时间？";
+"Use %@ as the outro start?" = "将 %@ 设置为片尾开始时间？";
+"Auto skip" = "自动跳过";
+"Outro remaining" = "片尾剩余";
+"Applies to all films. The outro is remembered as time remaining." = "适用于所有影片。片尾按距结束剩余的时间保存。";
+"Speed test" = "测速";
+"Source order" = "源顺序";
+"Fastest first" = "速度优先";
+"%lld selected" = "已选 %lld 项";
+"Stop testing" = "停止测速";
+"Test selected" = "开始测速";
+"Tested %lld of %lld" = "已测 %lld / %lld 项";
+"Tests media from the first episode and line. Speeds change with the network." = "测试首集、第一线路的媒体下载速度，结果会随网络变化。";
+"Waiting to test" = "等待测速";
+"Resolving video…" = "解析视频中…";
+"Testing media…" = "下载测速中…";
+"Test stopped" = "测速已停止";
+"First byte %lld ms" = "首包 %lld 毫秒";
+"No episodes are available to test." = "没有可用于测速的剧集。";
+"The media playlist is too large to test." = "视频播放列表过大，无法测速。";
+"The media playlist contains a loop." = "视频播放列表存在循环地址。";
+"No media data was available to test." = "没有可用于测速的媒体数据。";
+"The media playlist contains too many redirects." = "视频播放列表跳转层数过多。";
+"The source does not honor media byte ranges." = "视频源不支持所需的分段下载。";
+"The source returned a page instead of media data." = "视频源返回了网页或数据接口，无法测量媒体速度。";

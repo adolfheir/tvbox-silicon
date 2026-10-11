@@ -1,27 +1,34 @@
 import SwiftUI
 import TVCore
 
-private struct SearchPoster: Identifiable {
-    let site: Site
-    let video: Video
-    var id: String { "\(site.id.utf8.count):\(site.id)\(video.id)" }
-}
-
 struct GlobalSearchView: View {
     @Environment(Store.self) private var store
     @FocusState private var inputFocused: Bool
     @State private var showFailures = false
+    @State private var speed = SearchSpeedModel()
+    @State private var speedSelecting = false
+    @State private var speedSelection = Set<String>()
+    @State private var sortBySpeed = false
     @AppStorage("videoSearchHistory") private var historyData = Data()
     private var model: SearchModel { store.searchModel }
     private var history: [String] { (try? JSONDecoder().decode([String].self, from: historyData)) ?? [] }
-    private var posters: [SearchPoster] {
-        model.matches.filter { model.selectedSource == nil || $0.id == model.selectedSource }.flatMap { result in
+    private var allPosters: [SearchPoster] {
+        model.matches.flatMap { result in
             uniqueVideos(result.page?.videos ?? []).map { SearchPoster(site: result.site, video: $0) }
         }
+    }
+    private var posters: [SearchPoster] {
+        let visible = allPosters.filter { model.selectedSource == nil || $0.site.id == model.selectedSource }
+        guard sortBySpeed else { return visible }
+        return visible.enumerated().sorted {
+            let a = speed.results[$0.element.id]?.speed ?? -1, b = speed.results[$1.element.id]?.speed ?? -1
+            return a == b ? $0.offset < $1.offset : a > b
+        }.map(\.element)
     }
 
     var body: some View {
         @Bindable var model = model
+        Group {
         #if os(tvOS)
         searchResults
             .searchable(text: $model.draft, prompt: Text(L10n.text("Search videos")))
@@ -34,7 +41,7 @@ struct GlobalSearchView: View {
             .screenBackdrop()
             .sheet(isPresented: $showFailures) { failureDetails }
             .onAppear { if let config = store.subscription { model.resumeSuspended(config: config) } }
-            .onDisappear { model.suspend() }
+            .onDisappear { leaveSpeedSelection(); model.suspend() }
             .task(id: model.draft) {
                 let query = model.draft.trimmingCharacters(in: .whitespacesAndNewlines)
                 guard query != model.keyword else { return }
@@ -60,8 +67,11 @@ struct GlobalSearchView: View {
                 if model.keyword.isEmpty { inputFocused = true }
                 if let config = store.subscription { model.resumeSuspended(config: config) }
             }
-            .onDisappear { model.suspend() }
+            .onDisappear { leaveSpeedSelection(); model.suspend() }
         #endif
+        }
+        .onChange(of: model.keyword) { _, _ in speed.reset(); speedSelecting = false; speedSelection = []; sortBySpeed = false }
+        .onChange(of: store.subscription?.origin) { _, _ in speed.reset(); speedSelecting = false; speedSelection = []; sortBySpeed = false }
     }
 
     private var searchResults: some View {
@@ -187,6 +197,7 @@ struct GlobalSearchView: View {
                         searchActions(config)
                     }
                 }
+                if speedSelecting { speedSelectionBar(config) }
                 if model.busy {
                     SearchActivityList(origin: config.origin, completed: model.completed, total: model.total, runStart: model.runStart)
                 }
@@ -248,9 +259,21 @@ struct GlobalSearchView: View {
     }
 
     @ViewBuilder private func searchActionButtons(_ config: Subscription) -> some View {
-        if model.busy {
+        if !posters.isEmpty {
+            Button(L10n.text(speedSelecting ? "Done" : "Speed test")) {
+                inputFocused = false
+                if speedSelecting {
+                    leaveSpeedSelection(); model.resumeSuspended(config: config)
+                } else { model.suspend(); speedSelecting = true; speedSelection = [] }
+            }.searchAction().accessibilityIdentifier("search.speed.mode")
+        }
+        if speed.results.values.contains(where: { $0.speed != nil }) {
+            Button(L10n.text(sortBySpeed ? "Source order" : "Fastest first")) { sortBySpeed.toggle() }
+                .searchAction().accessibilityIdentifier("search.speed.sort")
+        }
+        if !speedSelecting && model.busy {
             Button(L10n.text("Stop")) { model.stop() }.searchAction()
-        } else if model.completed < model.total {
+        } else if !speedSelecting && model.completed < model.total {
             Button(L10n.text("Continue search")) { model.resume(config: config) }.searchAction()
         }
         if !model.failures.isEmpty {
@@ -265,21 +288,82 @@ struct GlobalSearchView: View {
     }
 
     @ViewBuilder private func resultLinks(_ config: Subscription) -> some View {
+        // Read state before the lazy ForEach builds its children so changing modes
+        // invalidates the grid as well as the independently rendered search header.
+        let selecting = speedSelecting
+        let selected = speedSelection
+        let testing = speed.busy
+        let results = speed.results
         ForEach(posters) { item in
-            RouteLink {
-                VideoDetailView(video: item.video, client: CatalogClient(site: item.site, origin: config.origin, jarURL: config.spiderURL))
-                    .onAppear { rememberQuery() }
-            } label: { searchPoster(item) }
-            .cardButton().id(item.id)
+            if selecting {
+                Button {
+                    if !speedSelection.insert(item.id).inserted { speedSelection.remove(item.id) }
+                } label: {
+                    searchPoster(item, status: results[item.id]).overlay(alignment: .topTrailing) {
+                        Image(systemName: selected.contains(item.id) ? "checkmark.circle.fill" : "circle")
+                            .font(.title2).foregroundStyle(.white).padding(8)
+                            .background(.black.opacity(0.45), in: Circle()).padding(6)
+                    }
+                }.cardButton().disabled(testing)
+                    .accessibilityIdentifier("search.speed.select.\(item.site.key).\(item.video.id)")
+                    .accessibilityValue(selected.contains(item.id) ? "1" : "0")
+            } else {
+                RouteLink {
+                    VideoDetailView(video: item.video, client: CatalogClient(site: item.site, origin: config.origin, jarURL: config.spiderURL))
+                        .onAppear { rememberQuery() }
+                } label: { searchPoster(item, status: results[item.id]) }
+                .cardButton()
+            }
         }
     }
 
-    private func searchPoster(_ item: SearchPoster) -> some View {
+    private func searchPoster(_ item: SearchPoster, status: SearchSpeedModel.Status?) -> some View {
         VStack(alignment: .leading, spacing: 2) {
             PosterCard(video: item.video)
             Text(SourceLabel(item.site.name).text).font(.caption).foregroundStyle(.secondary).lineLimit(1)
+            if let status { speedBadge(status, item: item) }
         }
     }
+
+    private func speedSelectionBar(_ config: Subscription) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 12) {
+                Text(L10n.text("%lld selected", speedSelection.count)).font(.subheadline)
+                if speed.busy {
+                    ProgressView().controlSize(.small)
+                    Button(L10n.text("Stop testing")) { speed.stop() }.searchAction().accessibilityIdentifier("search.speed.stop")
+                } else {
+                    Button(L10n.text("Test selected")) {
+                        speed.start(allPosters.filter { speedSelection.contains($0.id) }, config: config)
+                    }.searchAction().disabled(speedSelection.isEmpty).accessibilityIdentifier("search.speed.start")
+                }
+                if speed.total > 0 {
+                    Text(L10n.text("Tested %lld of %lld", speed.completed, speed.total)).font(.caption).monospacedDigit()
+                        .accessibilityIdentifier("search.speed.progress")
+                }
+            }
+            Text(L10n.text("Tests media from the first episode and line. Speeds change with the network."))
+                .font(.caption).foregroundStyle(.secondary)
+        }
+    }
+
+    @ViewBuilder private func speedBadge(_ status: SearchSpeedModel.Status, item: SearchPoster) -> some View {
+        let text: String = switch status {
+        case .queued: L10n.text("Waiting to test")
+        case .resolving: L10n.text("Resolving video…")
+        case .measuring: L10n.text("Testing media…")
+        case .cancelled: L10n.text("Test stopped")
+        case .failure(let error): error
+        case .success(let sample, let episode):
+            ByteCountFormatter.string(fromByteCount: Int64(sample.bytesPerSecond), countStyle: .file) + "/s · " +
+                L10n.text("First byte %lld ms", Int(sample.firstByteDelay * 1000)) + "\n" + episode
+        }
+        Text(text).font(.caption2).foregroundStyle(status.speed == nil ? Color.secondary : Brand.accent).lineLimit(3)
+            .accessibilityIdentifier("search.speed.result.\(item.site.key).\(item.video.id)")
+            .accessibilityValue(status.speed.map { String($0) } ?? text)
+    }
+
+    private func leaveSpeedSelection() { speed.stop(); speedSelecting = false; speedSelection = [] }
 
     private var idle: some View {
         VStack(alignment: .leading, spacing: 22) {

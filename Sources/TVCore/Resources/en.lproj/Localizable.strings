@@ -474,3 +474,42 @@
 // Automatic episode matching
 "Automatically match the current episode" = "Automatically match the current episode";
 "Matching comments appear automatically. If none match or the service is unavailable, the video stays clear." = "Matching comments appear automatically. If none match or the service is unavailable, the video stays clear.";
+
+// Player controls and episode navigation
+"Pause" = "Pause";
+"Loading %@…" = "Loading %@…";
+"Playback position" = "Playback position";
+"Next episode" = "Next episode";
+"Auto-play next episode" = "Auto-play next episode";
+"Playback speed" = "Playback speed";
+"Playback line" = "Playback line";
+"Lock controls" = "Lock controls";
+"Unlock controls" = "Unlock controls";
+"Intro" = "Intro";
+"Outro" = "Outro";
+"Confirm" = "Confirm";
+"Use %@ as the intro end?" = "Use %@ as the intro end?";
+"Use %@ as the outro start?" = "Use %@ as the outro start?";
+"Auto skip" = "Auto skip";
+"Outro remaining" = "Outro remaining";
+"Applies to all films. The outro is remembered as time remaining." = "Applies to all films. The outro is remembered as time remaining.";
+"Speed test" = "Speed test";
+"Source order" = "Source order";
+"Fastest first" = "Fastest first";
+"%lld selected" = "%lld selected";
+"Stop testing" = "Stop testing";
+"Test selected" = "Test selected";
+"Tested %lld of %lld" = "Tested %lld of %lld";
+"Tests media from the first episode and line. Speeds change with the network." = "Tests media from the first episode and line. Speeds change with the network.";
+"Waiting to test" = "Waiting to test";
+"Resolving video…" = "Resolving video…";
+"Testing media…" = "Testing media…";
+"Test stopped" = "Test stopped";
+"First byte %lld ms" = "First byte %lld ms";
+"No episodes are available to test." = "No episodes are available to test.";
+"The media playlist is too large to test." = "The media playlist is too large to test.";
+"The media playlist contains a loop." = "The media playlist contains a loop.";
+"No media data was available to test." = "No media data was available to test.";
+"The media playlist contains too many redirects." = "The media playlist contains too many redirects.";
+"The source does not honor media byte ranges." = "The source does not honor media byte ranges.";
+"The source returned a page instead of media data." = "The source returned a page instead of media data.";

@@ -2,6 +2,7 @@ import SwiftUI
 import AVKit
 import TVCore
 
+#if !os(iOS)
 struct PlaybackView: View {
     let channel: Channel
     @Environment(\.dismiss) private var dismiss
@@ -172,6 +173,8 @@ struct PlaybackView: View {
     }
 }
 
+#endif
+
 #if os(tvOS)
 private struct TVPlaybackFailureView: View {
     let channelName: String
@@ -269,12 +272,15 @@ private struct NativePlayerView: View {
 #else
 /// Attach the noninteractive drawing layer to AVKit's content overlay so it is
 /// retained when AVKit moves the video into its native fullscreen presentation.
-private struct NativePlayerView: UIViewControllerRepresentable {
+struct NativePlayerView: UIViewControllerRepresentable {
     let player: AVPlayer
     let danmaku: DanmakuModel
+    var fillsFrame = false
     func makeUIViewController(context: Context) -> AVPlayerViewController {
         let controller = AVPlayerViewController()
         controller.player = player
+        controller.showsPlaybackControls = false
+        controller.allowsPictureInPicturePlayback = false
         controller.loadViewIfNeeded()
         let host = UIHostingController(rootView: DanmakuOverlay(model: danmaku))
         controller.addChild(host)
@@ -293,7 +299,10 @@ private struct NativePlayerView: UIViewControllerRepresentable {
         host.didMove(toParent: controller)
         return controller
     }
-    func updateUIViewController(_ controller: AVPlayerViewController, context: Context) { controller.player = player }
+    func updateUIViewController(_ controller: AVPlayerViewController, context: Context) {
+        controller.player = player
+        controller.videoGravity = fillsFrame ? .resizeAspectFill : .resizeAspect
+    }
     static func dismantleUIViewController(_ controller: AVPlayerViewController, coordinator: ()) { controller.player = nil }
 }
 #endif

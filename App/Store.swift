@@ -5,7 +5,8 @@ import TVCore
     static let defaultURL = "https://cdn.jsdelivr.net/gh/adolfheir/tvbox@master/fty.json"
     let searchModel = SearchModel()
     let recommendationModel = RecommendationModel()
-    let playbackHistory = PlaybackHistory.shared
+    let playbackHistory: PlaybackHistory
+    let playbackDefaults: UserDefaults
     var resumingHistoryID: String?
     var subscription: Subscription?
     var subscriptionAddress: String
@@ -14,17 +15,42 @@ import TVCore
     var error: String?
     var notice: String?
     var playing: Channel?
+    var playbackCatalog: PlaybackCatalog?
+    var resolvingEpisode: Episode?
+    var episodeError: String?
+    var autoPlayNext: Bool {
+        didSet { if persistsChanges { defaults.set(autoPlayNext, forKey: "autoPlayNextEpisode") } }
+    }
+    private var episodeRequest = UUID()
+    private var episodeTask: Task<Void, Never>?
     var section: AppSection = .home
     private let defaults: UserDefaults
     private let http = HTTPClient()
+    private var persistsChanges: Bool {
+        #if DEBUG
+        return !defaults.bool(forKey: "qaIsolatedData")
+        #else
+        return true
+        #endif
+    }
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
+        #if DEBUG
+        playbackDefaults = defaults.bool(forKey: "qaIsolatedData")
+            ? UserDefaults(suiteName: "com.tvbox.yingxia.qa.player") ?? defaults : defaults
+        playbackHistory = defaults.bool(forKey: "qaIsolatedData")
+            ? PlaybackHistory(file: URL.cachesDirectory.appending(path: "qa-player-history.json")) : .shared
+        #else
+        playbackDefaults = defaults
+        playbackHistory = .shared
+        #endif
+        autoPlayNext = defaults.object(forKey: "autoPlayNextEpisode") == nil || defaults.bool(forKey: "autoPlayNextEpisode")
         subscriptionAddress = defaults.string(forKey: "subscriptionAddress") ?? Self.defaultURL
         let cached = (try? Data(contentsOf: Self.subscriptionFile)) ?? defaults.data(forKey: "subscription")
         if let cached { subscription = try? JSONDecoder().decode(Subscription.self, from: cached) }
         if let subscription { Self.registerPlugins(subscription) }
         // Older builds kept the whole subscription in defaults; move it to the file and drop the key.
-        if let legacy = defaults.data(forKey: "subscription") {
+        if persistsChanges, let legacy = defaults.data(forKey: "subscription") {
             try? Self.saveSubscription(legacy)
             defaults.removeObject(forKey: "subscription")
         }
@@ -62,8 +88,10 @@ import TVCore
         do {
             let url = try WebAddress.resolve(address ?? subscriptionAddress)
             let value = try await http.subscription(url)
-            try Self.saveSubscription(JSONEncoder().encode(value))
-            defaults.set(url.absoluteString, forKey: "subscriptionAddress")
+            if persistsChanges {
+                try Self.saveSubscription(JSONEncoder().encode(value))
+                defaults.set(url.absoluteString, forKey: "subscriptionAddress")
+            }
             subscriptionAddress = url.absoluteString
             searchModel.reset()
             recommendationModel.reset()
@@ -91,9 +119,45 @@ import TVCore
     func catalogChannel(_ resolved: Channel, video: Video, episode: Episode, client: CatalogClient,
                         resumePosition: Double? = nil) -> Channel {
         let context = PlaybackHistoryContext(origin: client.origin, site: client.site, video: video, episode: episode)
+        playbackCatalog = PlaybackCatalog(video: video, client: client.with(parses: subscription?.parseServices ?? client.parses), scope: context.id)
         return Channel(name: "\(video.name) · \(episode.name)", group: resolved.group, url: resolved.url,
                        logo: resolved.logo, headers: resolved.headers, skipScope: context.id,
                        historyContext: context, resumePosition: resumePosition)
+    }
+
+    func catalog(for channel: Channel) -> PlaybackCatalog? {
+        guard let catalog = playbackCatalog, catalog.scope == channel.historyContext?.id else { return nil }
+        return catalog
+    }
+
+    func nextEpisode(after channel: Channel) -> Episode? {
+        guard let context = channel.historyContext else { return nil }
+        return catalog(for: channel)?.playlist.next(after: context)
+    }
+
+    func selectEpisode(_ episode: Episode, from channel: Channel) {
+        guard playing == channel, let catalog = catalog(for: channel),
+              catalog.video.episodes.contains(episode) else { return }
+        cancelEpisodeSelection()
+        let request = episodeRequest
+        resolvingEpisode = episode; episodeError = nil
+        episodeTask = Task { [weak self] in
+            guard let self else { return }
+            defer { if self.episodeRequest == request { self.resolvingEpisode = nil; self.episodeTask = nil } }
+            do {
+                let resolved = try await catalog.client.playback(episode)
+                guard !Task.isCancelled, self.episodeRequest == request, self.playing == channel else { return }
+                self.playing = self.catalogChannel(resolved, video: catalog.video, episode: episode, client: catalog.client)
+            } catch {
+                guard !Task.isCancelled, self.episodeRequest == request, self.playing == channel else { return }
+                self.episodeError = error.localizedDescription
+            }
+        }
+    }
+
+    func cancelEpisodeSelection() {
+        episodeRequest = UUID()
+        episodeTask?.cancel(); episodeTask = nil; resolvingEpisode = nil
     }
 
     func resumeHistory(_ entry: PlaybackHistoryEntry) async {
@@ -120,4 +184,11 @@ import TVCore
             self.error = L10n.text("Unable to resume playback: %@", error.localizedDescription)
         }
     }
+}
+
+struct PlaybackCatalog {
+    let video: Video
+    let client: CatalogClient
+    let scope: String
+    var playlist: EpisodePlaylist { EpisodePlaylist(video.episodes) }
 }

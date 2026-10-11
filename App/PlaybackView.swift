@@ -1,10 +1,15 @@
 import SwiftUI
 import AVKit
 import TVCore
+#if os(iOS)
+import UIKit
+#endif
 
 @MainActor @Observable final class PlaybackSession {
     let player = AVPlayer()
     let danmaku = DanmakuModel()
+    var history = PlaybackHistory.shared
+    var skipDefaults = UserDefaults.standard
     private var mediaTimeObserver: Any?
     private var historyContext: PlaybackHistoryContext?
     private var pendingResume: Double?
@@ -15,6 +20,20 @@ import TVCore
     var loading = true
     var looping = false
     var buffering = false
+    private(set) var isPlaying = false
+    private(set) var channelName = ""
+    private(set) var speed: Float = 1
+    private var playbackPermitted = true
+    private var wantsPlayback = false
+    private var mayStartPlayback: Bool {
+        #if os(iOS)
+        return playbackPermitted && wantsPlayback
+        #else
+        // Desktop and TV use native controls that operate AVPlayer directly.
+        return true
+        #endif
+    }
+    var onPlaybackEnded: (() -> Void)?
     private(set) var skipSettings = EpisodeSkipSettings()
     private(set) var position: Double = 0
     private(set) var duration: Double = 0
@@ -32,13 +51,12 @@ import TVCore
 
     func endEditingSkip() {
         editingSkip = false
-        if resumeAfterEditing { player.play() }
+        if resumeAfterEditing && mayStartPlayback { player.play() }
         resumeAfterEditing = false
     }
 
     func applySkipSettings(_ settings: EpisodeSkipSettings) {
-        guard let skipScope, !settings.enabled || settings.validationError(duration: duration) == nil else { return }
-        settings.save(scope: skipScope)
+        settings.saveGlobal(defaults: skipDefaults)
         skipSettings = settings
         skipPass = EpisodeSkipPass()
     }
@@ -85,14 +103,26 @@ import TVCore
     private var timeObservation: NSKeyValueObservation?
 
     func togglePlayback() {
+        guard playbackPermitted else { return }
         if player.timeControlStatus == .paused {
             if let item = player.currentItem, item.duration.seconds.isFinite,
                player.currentTime().seconds >= item.duration.seconds - 0.1 {
                 skipPass = EpisodeSkipPass()
                 player.seek(to: .zero)
             }
-            player.play()
-        } else { player.pause() }
+            wantsPlayback = true
+            player.play(); isPlaying = true
+        } else { pausePlayback() }
+    }
+
+    func pausePlayback() {
+        wantsPlayback = false; resumeAfterEditing = false
+        player.pause(); isPlaying = false; saveHistory()
+    }
+
+    func setPlaybackActive(_ active: Bool) {
+        playbackPermitted = active
+        if !active { pausePlayback() }
     }
 
     func skip(_ seconds: Double) {
@@ -106,7 +136,15 @@ import TVCore
         player.seek(to: CMTime(seconds: target, preferredTimescale: 600))
     }
 
+    func seek(to seconds: Double) {
+        guard seconds.isFinite, let item = player.currentItem, item.status == .readyToPlay,
+              item.duration.seconds.isFinite, item.duration.seconds > 0 else { return }
+        let target = min(max(0, seconds), item.duration.seconds)
+        player.seek(to: CMTime(seconds: target, preferredTimescale: 600), toleranceBefore: .zero, toleranceAfter: .zero)
+    }
+
     func setSpeed(_ speed: Float) {
+        self.speed = speed
         player.defaultRate = speed
         if player.rate != 0 { player.rate = speed }
     }
@@ -119,6 +157,8 @@ import TVCore
     #endif
     func start(_ channel: Channel) {
         stop(); error = nil; loading = true
+        wantsPlayback = playbackPermitted
+        channelName = channel.name
         historyContext = channel.historyContext
         requestedResumePosition = channel.resumePosition
         pendingResume = channel.resumePosition.flatMap { $0.isFinite && $0 > 0 ? $0 : nil }
@@ -132,7 +172,7 @@ import TVCore
         #endif
         #endif
         skipScope = channel.skipScope
-        skipSettings = channel.skipScope.map { EpisodeSkipSettings.load(scope: $0) } ?? EpisodeSkipSettings()
+        skipSettings = EpisodeSkipSettings.loadGlobal(defaults: skipDefaults)
         let activeGeneration = generation
         Diagnostics.shared.record(.info, "player", "start name=\(channel.name) group=\(channel.group) url=\(channel.url.absoluteString) headers=\(channel.headers.keys.sorted().joined(separator: ","))")
         preparation = Task { [weak self] in
@@ -195,10 +235,10 @@ import TVCore
             Task { @MainActor [weak self] in
                 guard let self, self.generation == activeGeneration else { return }
                 self.saveHistory(completed: true)
-                guard self.looping else { return }
+                guard self.looping else { self.wantsPlayback = false; self.isPlaying = false; self.onPlaybackEnded?(); return }
                 self.skipPass = EpisodeSkipPass()
                 self.player.seek(to: .zero)
-                self.player.play()
+                if self.mayStartPlayback { self.player.play() }
             }
         }
         timeObservation = player.observe(\.timeControlStatus, options: [.initial, .new]) { [weak self] player, _ in
@@ -207,6 +247,7 @@ import TVCore
             Task { @MainActor [weak self] in
                 guard let self, self.generation == activeGeneration else { return }
                 self.buffering = waiting
+                self.isPlaying = !paused
                 if paused { self.saveHistory() }
             }
         }
@@ -221,7 +262,7 @@ import TVCore
                 self.danmaku.time = time.seconds
             }
         }
-        if pendingResume == nil { player.play() }
+        if pendingResume == nil && mayStartPlayback { player.play() }
         let origin = channel.url.host()
         sampler = Task { [weak self] in
             var history: [(date: Date, bytes: Int64)] = []
@@ -279,7 +320,8 @@ import TVCore
         #if DEBUG
         if QALaunch.page?.hasPrefix("play-source:") == true || QALaunch.page == "resume-last" || QALaunch.page == "history-player" {
             let seconds = player.currentTime().seconds
-            let report: [String: Any] = ["stage": "playback", "seconds": seconds.isFinite ? seconds : 0,
+            var report: [String: Any] = ["stage": "playback", "seconds": seconds.isFinite ? seconds : 0,
+                "channelName": channelName, "isPlaying": isPlaying,
                 "rate": player.rate, "ready": item.status == .readyToPlay, "receivedBytes": next.received,
                 "host": next.host ?? "", "error": error ?? "", "buffering": buffering,
                 "danmakuCount": danmaku.comments.count, "danmakuTrack": danmaku.track,
@@ -288,6 +330,10 @@ import TVCore
                 "duration": duration, "historyID": historyContext?.id ?? "", "requestedResumePosition": requestedResumePosition ?? 0,
                 "restoredPosition": restoredPosition ?? 0, "restoringPosition": restoringPosition || pendingResume != nil,
                 "skipEnabled": skipSettings.enabled, "introEnd": skipSettings.introEnd, "outroLength": skipSettings.outroLength]
+            #if os(iOS)
+            report["idleTimerDisabled"] = UIApplication.shared.isIdleTimerDisabled
+            report["screenBrightness"] = UIScreen.main.brightness
+            #endif
             try? JSONSerialization.data(withJSONObject: report, options: [.sortedKeys]).write(
                 to: URL.cachesDirectory.appending(path: "qa-playback.json"), options: .atomic)
         }
@@ -330,6 +376,8 @@ import TVCore
         observation = nil
         timeObservation = nil
         buffering = false
+        isPlaying = false
+        wantsPlayback = false
         if let endObserver { NotificationCenter.default.removeObserver(endObserver) }
         endObserver = nil
         if let failureObserver { NotificationCenter.default.removeObserver(failureObserver) }
@@ -342,7 +390,7 @@ import TVCore
               pendingResume == nil, !restoringPosition, !seekingSegment else { return }
         let length = item.duration.seconds
         let time = completed && length.isFinite ? length : player.currentTime().seconds
-        PlaybackHistory.shared.record(context, position: time, duration: length.isFinite ? length : 0)
+        history.record(context, position: time, duration: length.isFinite ? length : 0)
     }
 
     private func restorePositionIfNeeded(_ item: AVPlayerItem) {
@@ -360,7 +408,7 @@ import TVCore
                 }
                 self.restoredPosition = self.player.currentTime().seconds
                 Diagnostics.shared.record(.info, "player", "history resume requested=\(requested) restored=\(self.restoredPosition ?? -1)")
-                self.player.play()
+                if self.mayStartPlayback && !self.editingSkip { self.player.play() }
                 self.saveHistory()
             }
         }

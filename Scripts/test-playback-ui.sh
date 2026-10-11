@@ -4,6 +4,7 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 SIMULATOR_ID="${1:?Usage: Scripts/test-playback-ui.sh <iPad simulator UUID>}"
+shift
 OUT=build/PlaybackUI
 mkdir -p "$OUT"
 if lsof -tiTCP:8776 -sTCP:LISTEN >/dev/null; then
@@ -77,4 +78,4 @@ YAML
 xcodegen generate --spec "$OUT/project.yml"
 xcodebuild -project "$OUT/PlaybackUI.xcodeproj" -scheme PlaybackAcceptance \
   -destination "platform=iOS Simulator,id=$SIMULATOR_ID" \
-  -derivedDataPath "$OUT/DerivedData" CODE_SIGNING_ALLOWED=NO test
+  -derivedDataPath "$OUT/DerivedData" CODE_SIGNING_ALLOWED=NO -collect-test-diagnostics never test "$@"

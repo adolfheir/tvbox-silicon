@@ -474,3 +474,42 @@
 // Automatic episode matching
 "Automatically match the current episode" = "現在のエピソードを自動検索";
 "Matching comments appear automatically. If none match or the service is unavailable, the video stays clear." = "作品とエピソードが一致すると弾幕を表示します。一致しない場合やサービスを利用できない場合は表示しません。";
+
+// Player controls and episode navigation
+"Pause" = "一時停止";
+"Loading %@…" = "%@を読み込み中…";
+"Playback position" = "再生位置";
+"Next episode" = "次のエピソード";
+"Auto-play next episode" = "次のエピソードを自動再生";
+"Playback speed" = "再生速度";
+"Playback line" = "再生ソース";
+"Lock controls" = "操作をロック";
+"Unlock controls" = "ロック解除";
+"Intro" = "オープニング";
+"Outro" = "エンディング";
+"Confirm" = "確認";
+"Use %@ as the intro end?" = "%@ をオープニングの終了位置に設定しますか？";
+"Use %@ as the outro start?" = "%@ をエンディングの開始位置に設定しますか？";
+"Auto skip" = "自動スキップ";
+"Outro remaining" = "エンディングの残り時間";
+"Applies to all films. The outro is remembered as time remaining." = "すべての作品に適用します。エンディングは終了までの残り時間で保存されます。";
+"Speed test" = "速度テスト";
+"Source order" = "ソース順";
+"Fastest first" = "速度順";
+"%lld selected" = "%lld 件選択中";
+"Stop testing" = "テストを停止";
+"Test selected" = "選択項目をテスト";
+"Tested %lld of %lld" = "%lld / %lld 件テスト済み";
+"Tests media from the first episode and line. Speeds change with the network." = "最初の話と再生ルートのメディアを測定します。速度は通信状況で変わります。";
+"Waiting to test" = "テスト待機中";
+"Resolving video…" = "動画を解析中…";
+"Testing media…" = "メディアを測定中…";
+"Test stopped" = "テスト停止済み";
+"First byte %lld ms" = "初回応答 %lld ms";
+"No episodes are available to test." = "テストできるエピソードがありません。";
+"The media playlist is too large to test." = "メディアプレイリストが大きすぎます。";
+"The media playlist contains a loop." = "メディアプレイリストにループがあります。";
+"No media data was available to test." = "測定できるメディアデータがありません。";
+"The media playlist contains too many redirects." = "メディアプレイリストの転送回数が多すぎます。";
+"The source does not honor media byte ranges." = "ソースが必要な部分ダウンロードに対応していません。";
+"The source returned a page instead of media data." = "ソースが動画以外のページやデータを返しました。";

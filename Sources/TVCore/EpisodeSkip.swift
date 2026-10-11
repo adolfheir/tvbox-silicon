@@ -54,6 +54,15 @@ public struct EpisodeSkipSettings: Codable, Equatable, Sendable {
         defaults.data(forKey: "episodeSkip.v1." + scope).flatMap { try? JSONDecoder().decode(Self.self, from: $0) } ?? Self()
     }
 
+    public static func loadGlobal(defaults: UserDefaults = .standard) -> Self {
+        defaults.data(forKey: "episodeSkip.global.v1").flatMap { try? JSONDecoder().decode(Self.self, from: $0) } ?? Self()
+    }
+
+    public func saveGlobal(defaults: UserDefaults = .standard) {
+        guard let data = try? JSONEncoder().encode(self) else { return }
+        defaults.set(data, forKey: "episodeSkip.global.v1")
+    }
+
     public func save(scope: String, defaults: UserDefaults = .standard) {
         guard let data = try? JSONEncoder().encode(self) else { return }
         defaults.set(data, forKey: "episodeSkip.v1." + scope)

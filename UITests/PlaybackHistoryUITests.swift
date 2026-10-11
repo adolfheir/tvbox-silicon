@@ -7,11 +7,16 @@ final class PlaybackHistoryUITests: XCTestCase {
         continueAfterFailure = false
         let app = XCUIApplication()
         let common = ["-qaSubscription", "http://127.0.0.1:8776/config.json", "-qaPlayerControls", "1",
-                      "-danmakuAutoMatch", "0",
+                      "-danmakuAutoMatch", "0", "-autoPlayNextEpisode", "0",
                       "-qaPlaybackProbe", "1", "-qaMute", "1", "-qaLegacyUI", "1", "-AppleLanguages", "(zh-Hans)"]
-        app.launchArguments = common + ["-qaSection", "history", "-qaPage", "play-source:qa-standard", "-qaStartAt", "30", "-qaResetHistory", "1"]
+        app.launchArguments = common + ["-qaSection", "history", "-qaPage", "play-source:qa-standard", "-qaStartAt", "30", "-qaResetHistory", "1", "-qaResetPlayerSettings", "1"]
         app.launch()
         waitForPosition(app, minimum: 32)
+        app.buttons["player.markIntro"].tap()
+        let confirm = app.alerts.buttons["确认"]
+        XCTAssertTrue(confirm.waitForExistence(timeout: 10))
+        confirm.tap()
+        app.buttons["player.more"].tap()
         app.buttons["player.skip"].tap()
         let mark = app.buttons["player.skip.markIntro"]
         XCTAssertTrue(mark.waitForExistence(timeout: 10), app.debugDescription)
@@ -29,6 +34,10 @@ final class PlaybackHistoryUITests: XCTestCase {
         save.tap()
         XCTAssertTrue(app.buttons["player.close"].waitForExistence(timeout: 10))
         waitForPosition(app, minimum: 34)
+        let play = app.buttons["player.playPause"]
+        play.tap()
+        expectation(for: NSPredicate(format: "value == %@", "paused"), evaluatedWith: play)
+        waitForExpectations(timeout: 10)
         let saved = try XCTUnwrap(Double(app.staticTexts["player.qa.position"].value as? String ?? ""))
         app.buttons["player.close"].tap()
         let history = app.buttons["history.resume.1"]
@@ -44,8 +53,14 @@ final class PlaybackHistoryUITests: XCTestCase {
         XCTAssertTrue(history.waitForExistence(timeout: 15))
         history.tap()
         waitForPosition(app, minimum: saved - 1)
-        let restored = try XCTUnwrap(Double(app.staticTexts["player.qa.resume"].value as? String ?? ""))
+        let resume = app.staticTexts["player.qa.resume"]
+        expectation(for: NSPredicate { _, _ in
+            (Double(resume.value as? String ?? "") ?? -1) >= 0
+        }, evaluatedWith: nil)
+        waitForExpectations(timeout: 15)
+        let restored = try XCTUnwrap(Double(resume.value as? String ?? ""))
         XCTAssertEqual(restored, saved, accuracy: 2)
+        app.buttons["player.more"].tap()
         app.buttons["player.skip"].tap()
         XCTAssertTrue(intro.waitForExistence(timeout: 10))
         XCTAssertEqual(intro.value as? String, introText)
