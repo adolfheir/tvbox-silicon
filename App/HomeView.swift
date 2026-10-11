@@ -16,6 +16,9 @@ struct HomeView: View {
                 VStack(alignment: .leading, spacing: Layout.sectionSpacing) {
                     if !store.playbackHistory.entries.isEmpty { continueWatching }
                     if let config = store.subscription {
+                        if store.orderedSites(config).contains(where: { store.pinnedSources.contains($0, origin: config.origin) }) {
+                            pinnedSources(config)
+                        }
                         RecommendationsView(config: config)
                         if !store.favorites.isEmpty { favorites }
                         if !config.lives.isEmpty { playlists(config).id("live") }
@@ -105,6 +108,19 @@ struct HomeView: View {
     }
 
     // MARK: Sections
+
+    private func pinnedSources(_ config: Subscription) -> some View {
+        VStack(alignment: .leading, spacing: Layout.headerSpacing) {
+            SectionHeader(title: L10n.text("Pinned Sources")) { store.section = .sites }
+            LazyVGrid(columns: Layout.cardColumns, spacing: Layout.cardSpacing) {
+                ForEach(store.orderedSites(config).filter { store.pinnedSources.contains($0, origin: config.origin) }) { site in
+                    RouteLink { SiteView(site: site, origin: config.origin, jarURL: config.spiderURL) } label: { SiteCard(site: site) }
+                        .cardButton().contextMenu { PinSourceButton(site: site, origin: config.origin) }
+                        .accessibilityIdentifier("home.pinned." + site.key)
+                }
+            }
+        }.accessibilityIdentifier("home.pinnedSources")
+    }
 
     private var continueWatching: some View {
         VStack(alignment: .leading, spacing: Layout.headerSpacing) {

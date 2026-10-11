@@ -29,7 +29,11 @@ enum QALaunch {
         if UserDefaults.standard.bool(forKey: "qaResetHistory") { store.playbackHistory.clear() }
         if UserDefaults.standard.bool(forKey: "qaResetPlayerSettings") {
             EpisodeSkipSettings().saveGlobal(defaults: store.playbackDefaults)
+            for key in store.playbackDefaults.dictionaryRepresentation().keys where key.hasPrefix("episodeSkip.v1.") || key == "episodeSkip.auto.v2" {
+                store.playbackDefaults.removeObject(forKey: key)
+            }
         }
+        if UserDefaults.standard.bool(forKey: "qaResetCache") { MediaCache.shared.clear() }
         if let subscription = UserDefaults.standard.string(forKey: "qaSubscription") { await store.importSubscription(address: subscription) }
         else if store.subscription == nil { await store.importSubscription() }
         if QASweep.enabled, let config = store.subscription { Task.detached(priority: .utility) { await QASweep.run(config) } }
@@ -54,7 +58,8 @@ enum QALaunch {
                         videos = try await QASweep.limit(60) { try await client.list(category: category.id, query: "", page: 1).videos }
                     }
                 }
-                guard let first = videos.first else { throw QASweep.Failure(message: "No videos") }
+                let videoID = UserDefaults.standard.string(forKey: "qaVideoID")
+                guard let first = videoID.flatMap({ id in videos.first { $0.id == id } }) ?? videos.first else { throw QASweep.Failure(message: "No videos") }
                 let video = try await QASweep.limit(60) { try await client.detail(first.id) }
                 let selectedEpisode = UserDefaults.standard.string(forKey: "qaEpisodeName")
                 guard let episode = selectedEpisode.flatMap({ name in video.episodes.first { $0.name == name } })
@@ -101,6 +106,7 @@ enum QALaunch {
                 }
             case "runtime": RuntimeView()
             case "logs": DiagnosticsView()
+            case "cache": CacheSettingsView()
             case "licenses": LicensesView()
             #if !os(macOS)
             case "cloud-login": CloudQRLoginView(drive: parts.dropFirst().first == "uc" ? .uc : .quark) {}
@@ -112,7 +118,7 @@ enum QALaunch {
 
     static func overrides(_ section: AppSection) -> Bool {
         guard section == self.section, let page else { return false }
-        return ["site", "detail", "channels", "runtime", "logs", "licenses", "cloud-login"].contains(page.split(separator: ":").first.map(String.init) ?? "")
+        return ["site", "detail", "channels", "runtime", "logs", "cache", "licenses", "cloud-login"].contains(page.split(separator: ":").first.map(String.init) ?? "")
     }
 }
 

@@ -3,8 +3,8 @@ import Foundation
 import FoundationXML
 #endif
 
-public struct DanmakuComment: Sendable, Hashable {
-    public enum Mode: Int, Sendable { case scroll = 1, bottom = 4, top = 5 }
+public struct DanmakuComment: Sendable, Hashable, Codable {
+    public enum Mode: Int, Sendable, Codable { case scroll = 1, bottom = 4, top = 5 }
     public let time: Double
     public let mode: Mode
     public let color: UInt32
@@ -31,7 +31,23 @@ public enum DanmakuParser {
             return try reader.read(data)
         }
         guard let root = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let rows = root["comments"] as? [[String: Any]] else {
+              root["comments"] != nil || root["danmuku"] != nil else {
+            throw TVError.unsupported(L10n.text("The service did not return a supported danmaku list."))
+        }
+        if let rows = root["danmuku"] as? [[Any]], (root["code"] as? NSNumber)?.intValue == 23 {
+            var seen = Set<DanmakuComment>()
+            return rows.prefix(maximumComments).compactMap { row in
+                guard row.count >= 5, let time = row[0] as? NSNumber, let text = row[4] as? String else { return nil }
+                let direction = row[1] as? String ?? "right"
+                let mode = direction == "top" ? 5 : direction == "bottom" ? 4 : 1
+                var colorText = (row[2] as? String ?? "").replacingOccurrences(of: "#", with: "")
+                if colorText.count == 3 { colorText = colorText.map { "\($0)\($0)" }.joined() }
+                let color = UInt32(colorText, radix: 16) ?? 0xffffff
+                guard let comment = DanmakuComment(time: time.doubleValue, mode: mode, color: color, text: text), seen.insert(comment).inserted else { return nil }
+                return comment
+            }.sorted { $0.time < $1.time }
+        }
+        guard let rows = root["comments"] as? [[String: Any]] else {
             throw TVError.unsupported(L10n.text("The service did not return a supported danmaku list."))
         }
         var seen = Set<DanmakuComment>()
@@ -127,8 +143,9 @@ public enum DanmakuMatcher {
         return number > 0 ? number : nil
     }
 
-    private static func normalized(_ text: String) -> String {
-        String(text.folding(options: [.caseInsensitive, .widthInsensitive, .diacriticInsensitive], locale: Locale(identifier: "en_US_POSIX"))
+    public static func normalized(_ text: String) -> String {
+        let simplified = text.applyingTransform(StringTransform("Traditional-Simplified"), reverse: false) ?? text
+        return String(simplified.folding(options: [.caseInsensitive, .widthInsensitive, .diacriticInsensitive], locale: Locale(identifier: "en_US_POSIX"))
             .unicodeScalars.filter { CharacterSet.alphanumerics.contains($0) })
     }
 }
@@ -138,8 +155,10 @@ public enum DanmakuMatcher {
 public struct DanmakuClient: Sendable {
     public static let defaultServer = "https://danmaku-api.152468.xyz"
     public let server: URL
+    private let transport: DanmakuHTTP?
 
-    public init(address: String = Self.defaultServer) throws {
+    public init(address: String = Self.defaultServer, transport: DanmakuHTTP? = nil) throws {
+        self.transport = transport
         let url = try WebAddress.resolve(address.trimmingCharacters(in: .whitespacesAndNewlines))
         guard url.user == nil, url.password == nil, url.query == nil, url.fragment == nil else {
             throw TVError.unsupported(L10n.text("Enter the danmaku server base URL, without a query or fragment."))
@@ -188,6 +207,11 @@ public struct DanmakuClient: Sendable {
         var request = URLRequest(url: parts.url!, timeoutInterval: 25)
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         request.setValue("Yingxia/1.0.2 (danmaku; https://github.com/adolfheir/tvbox-silicon)", forHTTPHeaderField: "User-Agent")
+        if let transport {
+            let data = try await transport.send(request)
+            guard data.count <= DanmakuParser.maximumBytes else { throw unsupported() }
+            return data
+        }
         let (bytes, response) = try await URLSession.shared.bytes(for: request)
         let status = (response as? HTTPURLResponse)?.statusCode ?? 0
         guard (200..<300).contains(status) else {

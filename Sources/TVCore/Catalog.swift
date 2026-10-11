@@ -4,7 +4,7 @@ public struct Category: Identifiable, Sendable {
     public let id: String
     public let name: String
 }
-public struct Episode: Identifiable, Hashable, Sendable {
+public struct Episode: Identifiable, Hashable, Sendable, Codable {
     public let id: String
     public let name: String
     public let address: String
@@ -14,17 +14,19 @@ public struct Episode: Identifiable, Hashable, Sendable {
         self.id = id; self.name = name; self.address = address; self.flag = flag; self.videoID = videoID
     }
 }
-public struct Video: Identifiable, Hashable, Sendable {
+public struct Video: Identifiable, Hashable, Sendable, Codable {
     public let id: String
     public let name: String
     public let poster: URL?
     public let posterHeaders: [String: String]
+    public let year: String?
     public let remarks: String
     public let synopsis: String
     public let episodes: [Episode]
     public init?(json: [String: JSONValue], origin: URL) {
         guard let id = json["vod_id"]?.string, !id.isEmpty else { return nil }
         self.id = id; name = json["vod_name"]?.string ?? id
+        year = json["vod_year"]?.string.flatMap { $0.count == 4 && $0.allSatisfy(\.isNumber) ? $0 : nil }
         let artwork = json["vod_pic"]?.string.flatMap { PosterResource(address: $0, origin: origin) }
         poster = artwork?.url; posterHeaders = artwork?.headers ?? [:]
         remarks = HTMLText.plain(json["vod_remarks"]?.string ?? "")
@@ -218,7 +220,10 @@ public struct CatalogClient: Sendable {
         else { params["ac"] = "detail"; params["t"] = category }
         return CatalogPage(json: try await request(params), origin: origin)
     }
-    public func detail(_ id: String) async throws -> Video {
+    public func detail(_ id: String, cached: Bool = false) async throws -> Video {
+        let scope = EpisodeSkipSettings.scope(origin: origin, source: site.key, video: id)
+        if cached, let data = MediaCache.shared.data(for: "detail", kind: .catalog, scope: scope),
+           let video = try? JSONDecoder().decode(Video.self, from: data), video.id == id { return video }
         var json = try await request(["ac": "detail", "ids": id])
         if let list = json["list"]?.array {
             json["list"] = .array(list.map { item in

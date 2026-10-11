@@ -119,6 +119,9 @@ class Handler(BaseHTTPRequestHandler):
                                                    {'episodeId':900010002,'episodeTitle':'第2话'}]}})
         if path == '/api/v2/comment/900010001':
             return self.send({'comments':[{'p':f'{time},1,16777215,qa','m':'Automatic match QA fixture'} for time in [1,30,90]]})
+        if path == '/api/v2/comment/900010002':
+            return self.send({'comments':[{'p':f'{time},1,16777215,qa','m':'Next episode QA fixture'} for time in [2,20,80]]})
+        if path == '/counts': return self.send(counts)
         if path == '/failure': return self.send('Service unavailable',503,'text/plain')
         if path in ['/api','/slow','/empty','/index']:
             if path=='/slow':time.sleep(2)

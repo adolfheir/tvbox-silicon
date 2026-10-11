@@ -4,6 +4,25 @@ import TVCore
 @main struct Probe {
     static func main() async throws {
         let args = CommandLine.arguments
+        if args.count >= 5, args[1] == "--danmaku-check" {
+            let output = URL(fileURLWithPath: args[4])
+            let cache = MediaCache(root: output.deletingLastPathComponent().appending(path: "danmaku-probe-cache"))
+            let context = PlaybackHistoryContext(origin: URL(string: "https://example.com/probe")!, sourceKey: "probe", sourceName: "Probe",
+                videoID: args[2], videoName: args[2], episodeID: args[3], episodeName: args[3], episodeFlag: "probe")
+            let resolver = DanmakuResolver(cache: cache)
+            let start = Date()
+            let result = try await resolver.resolve(context)
+            let seconds = Date().timeIntervalSince(start)
+            let again = Date()
+            let cached = try await resolver.resolve(context)
+            let summary: [String: Any] = ["title": args[2], "episode": args[3], "source": result.source,
+                "track": result.track, "comments": result.comments.count, "state": result.state,
+                "seconds": seconds, "secondLoadSeconds": Date().timeIntervalSince(again), "secondLoadCached": cached.cached]
+            let data = try JSONSerialization.data(withJSONObject: summary, options: [.prettyPrinted, .sortedKeys])
+            try FileManager.default.createDirectory(at: output.deletingLastPathComponent(), withIntermediateDirectories: true)
+            try data.write(to: output, options: .atomic)
+            print(String(decoding: data, as: UTF8.self)); return
+        }
         guard args.count >= 2 else {
             print("Usage: TVBoxProbe <jar path> [class descriptor] [static int method]")
             print("       TVBoxProbe --subscription-check <URL> [...]")

@@ -51,7 +51,10 @@ public struct EpisodeSkipSettings: Codable, Equatable, Sendable {
     }
 
     public static func load(scope: String, defaults: UserDefaults = .standard) -> Self {
-        defaults.data(forKey: "episodeSkip.v1." + scope).flatMap { try? JSONDecoder().decode(Self.self, from: $0) } ?? Self()
+        // Do not migrate a global time into every work: it belongs to an unknown previous film.
+        var value = defaults.data(forKey: "episodeSkip.v1." + scope).flatMap { try? JSONDecoder().decode(Self.self, from: $0) } ?? Self()
+        value.enabled = defaults.object(forKey: "episodeSkip.auto.v2") as? Bool ?? loadGlobal(defaults: defaults).enabled
+        return value
     }
 
     public static func loadGlobal(defaults: UserDefaults = .standard) -> Self {
@@ -66,6 +69,10 @@ public struct EpisodeSkipSettings: Codable, Equatable, Sendable {
     public func save(scope: String, defaults: UserDefaults = .standard) {
         guard let data = try? JSONEncoder().encode(self) else { return }
         defaults.set(data, forKey: "episodeSkip.v1." + scope)
+        defaults.set(enabled, forKey: "episodeSkip.auto.v2")
+    }
+    public static func remove(scope: String, defaults: UserDefaults = .standard) {
+        defaults.removeObject(forKey: "episodeSkip.v1." + scope)
     }
 }
 

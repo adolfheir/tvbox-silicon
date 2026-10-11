@@ -56,7 +56,8 @@ import UIKit
     }
 
     func applySkipSettings(_ settings: EpisodeSkipSettings) {
-        settings.saveGlobal(defaults: skipDefaults)
+        guard let skipScope else { return }
+        settings.save(scope: skipScope, defaults: skipDefaults)
         skipSettings = settings
         skipPass = EpisodeSkipPass()
     }
@@ -172,7 +173,7 @@ import UIKit
         #endif
         #endif
         skipScope = channel.skipScope
-        skipSettings = EpisodeSkipSettings.loadGlobal(defaults: skipDefaults)
+        skipSettings = skipScope.map { EpisodeSkipSettings.load(scope: $0, defaults: skipDefaults) } ?? EpisodeSkipSettings()
         let activeGeneration = generation
         Diagnostics.shared.record(.info, "player", "start name=\(channel.name) group=\(channel.group) url=\(channel.url.absoluteString) headers=\(channel.headers.keys.sorted().joined(separator: ","))")
         preparation = Task { [weak self] in
@@ -326,6 +327,7 @@ import UIKit
                 "host": next.host ?? "", "error": error ?? "", "buffering": buffering,
                 "danmakuCount": danmaku.comments.count, "danmakuTrack": danmaku.track,
                 "danmakuAutomaticState": danmaku.automaticState,
+                "danmakuSource": danmaku.source, "danmakuCached": danmaku.fromCache,
                 "danmakuTime": danmaku.time, "danmakuOffset": danmaku.offset, "danmakuEnabled": danmaku.enabled,
                 "duration": duration, "historyID": historyContext?.id ?? "", "requestedResumePosition": requestedResumePosition ?? 0,
                 "restoredPosition": restoredPosition ?? 0, "restoringPosition": restoringPosition || pendingResume != nil,

@@ -291,6 +291,9 @@ struct PlaybackView: View {
         resetSwipe(rejectRemainingTouch: true)
         scrubbing = false
         session.start(channel)
+        if let catalog = store.catalog(for: channel), let next = store.nextEpisode(after: channel) {
+            session.danmaku.prefetch(PlaybackHistoryContext(origin: catalog.client.origin, site: catalog.client.site, video: catalog.video, episode: next))
+        }
         session.onPlaybackEnded = {
             poke()
             if scenePhase == .active, store.autoPlayNext, let next = store.nextEpisode(after: channel) { store.selectEpisode(next, from: channel) }

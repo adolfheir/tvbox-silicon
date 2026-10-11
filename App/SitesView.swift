@@ -9,9 +9,10 @@ struct SitesView: View {
             if let config = store.subscription {
                 ScrollView {
                     LazyVGrid(columns: Layout.cardColumns, spacing: Layout.cardSpacing) {
-                        ForEach(SourceStrategy.arrange(config.sites) { !$0.hidden && $0.canBrowse(jarURL: config.spiderURL) }
+                        ForEach(store.orderedSites(config)
                             .filter { query.isEmpty || $0.name.localizedCaseInsensitiveContains(query) }) { site in
                             RouteLink { SiteView(site: site, origin: config.origin, jarURL: config.spiderURL) } label: { SiteCard(site: site) }.cardButton()
+                                .contextMenu { PinSourceButton(site: site, origin: config.origin) }
                         }
                     }.pageContainer()
                 }
@@ -23,6 +24,7 @@ struct SitesView: View {
 }
 
 struct SiteCard: View {
+    @Environment(Store.self) private var store
     let site: Site
     var body: some View {
         let label = SourceLabel(site.name)
@@ -31,6 +33,9 @@ struct SiteCard: View {
             IconTile(symbol: site.native ? "film.stack" : "puzzlepiece.extension.fill", tint: site.native ? Brand.terracotta : Brand.amber, size: 46)
             VStack(alignment: .leading, spacing: 6) {
                 CardTitle(text: label.text)
+                if let origin = store.subscription?.origin, store.pinnedSources.contains(site, origin: origin) {
+                    Label(L10n.text("Pinned"), systemImage: "pin.fill").font(.caption).foregroundStyle(Brand.accent)
+                }
                 if !site.native { Pill(text: site.compatibility, tint: Brand.amber) }
             }
             Spacer(minLength: 0)
@@ -38,6 +43,18 @@ struct SiteCard: View {
         }
         .padding(14).frame(maxWidth: .infinity, alignment: .leading)
         .contentPanel()
+    }
+}
+
+struct PinSourceButton: View {
+    @Environment(Store.self) private var store
+    let site: Site
+    let origin: URL
+    var body: some View {
+        let pinned = store.pinnedSources.contains(site, origin: origin)
+        Button { store.pinnedSources.toggle(site, origin: origin) } label: {
+            Label(L10n.text(pinned ? "Unpin source" : "Pin source"), systemImage: pinned ? "pin.slash" : "pin")
+        }.accessibilityIdentifier("source.pin." + site.key)
     }
 }
 
@@ -117,6 +134,7 @@ struct SiteView: View {
                 .onSubmit(of: .search) { Task { await search() } }
             }
         }
+        .toolbar { PinSourceButton(site: site, origin: origin) }
         .screenBackdrop()
         .screenTitle(site.name).task {
             if canLoad && !browser.loaded {
@@ -349,7 +367,7 @@ struct VideoDetailView: View {
         guard !busy else { return }
         busy = true; error = nil
         defer { busy = false }
-        do { detail = try await client.detail(video.id) } catch { self.error = error.localizedDescription }
+        do { detail = try await client.detail(video.id, cached: client.site.type == 3 || client.site.type == 4) } catch { self.error = error.localizedDescription }
     }
     private var headerLayout: AnyLayout {
         #if os(iOS)

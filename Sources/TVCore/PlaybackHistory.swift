@@ -13,6 +13,10 @@ public struct PlaybackHistoryContext: Codable, Hashable, Sendable {
     public let episodeID: String
     public let episodeName: String
     public let episodeFlag: String
+    public var year: String?
+    /// Only validated public official pages are retained, never signed stream addresses.
+    public var officialPage: URL?
+    public var posterHeaders: [String: String]?
     public var id: String { EpisodeSkipSettings.scope(origin: origin, source: sourceKey, video: videoID) }
 
     public init(origin: URL, sourceKey: String, sourceName: String, videoID: String, videoName: String,
@@ -26,6 +30,9 @@ public struct PlaybackHistoryContext: Codable, Hashable, Sendable {
         self.init(origin: origin, sourceKey: site.key, sourceName: site.name, videoID: video.id,
                   videoName: video.name, poster: video.poster, episodeID: episode.id,
                   episodeName: episode.name, episodeFlag: episode.flag)
+        year = video.year
+        posterHeaders = video.posterHeaders.isEmpty ? nil : video.posterHeaders
+        officialPage = OfficialVideoPage.validated(episode.address)
     }
 
     /// Names survive list reordering. Never silently resume a different episode
@@ -61,8 +68,11 @@ public struct PlaybackHistoryEntry: Identifiable, Codable, Hashable, Sendable {
     public private(set) var entries: [PlaybackHistoryEntry] = []
     public private(set) var persistenceError: String?
     private let file: URL
+    private let cache: MediaCache
+    private let defaults: UserDefaults
 
-    public init(file: URL? = nil) {
+    public init(file: URL? = nil, cache: MediaCache = .shared, defaults: UserDefaults = .standard) {
+        self.cache = cache; self.defaults = defaults
         #if os(tvOS)
         let directory = URL.cachesDirectory
         #else
@@ -75,6 +85,7 @@ public struct PlaybackHistoryEntry: Identifiable, Codable, Hashable, Sendable {
             entries = Array(decoded.filter { Self.valid($0) }.sorted { $0.updatedAt > $1.updatedAt }
                 .filter { seen.insert($0.id).inserted }.prefix(Self.limit))
         }
+        prioritizeCaches()
     }
 
     public func record(_ context: PlaybackHistoryContext, position: Double, duration: Double, now: Date = Date()) {
@@ -86,12 +97,29 @@ public struct PlaybackHistoryEntry: Identifiable, Codable, Hashable, Sendable {
            abs(old.position - entry.position) < 0.25, old.duration == duration { return }
         entries.removeAll { $0.id == entry.id }
         entries.insert(entry, at: 0)
+        let dropped = entries.dropFirst(Self.limit)
+        for entry in dropped { clean(entry) }
         entries = Array(entries.prefix(Self.limit))
+        prioritizeCaches()
         persist()
     }
 
-    public func remove(_ id: String) { entries.removeAll { $0.id == id }; persist() }
-    public func clear() { entries.removeAll(); persist() }
+    public func remove(_ id: String) { remove(Set([id])) }
+    public func remove(_ ids: Set<String>) {
+        for entry in entries where ids.contains(entry.id) { clean(entry) }
+        entries.removeAll { ids.contains($0.id) }; prioritizeCaches(); persist()
+    }
+    public func clear() { for entry in entries { clean(entry) }; entries.removeAll(); prioritizeCaches(); persist() }
+    private func prioritizeCaches() {
+        cache.prioritize(Set(entries.flatMap { entry in
+            [entry.id] + (entry.context.poster.map { [PosterResource.artworkScope($0)] } ?? [])
+        }))
+    }
+    private func clean(_ entry: PlaybackHistoryEntry) {
+        cache.remove(scope: entry.id)
+        if let poster = entry.context.poster { cache.remove(scope: PosterResource.artworkScope(poster)) }
+        EpisodeSkipSettings.remove(scope: entry.id, defaults: defaults)
+    }
 
     private static func valid(_ entry: PlaybackHistoryEntry) -> Bool {
         !entry.context.sourceKey.isEmpty && !entry.context.videoID.isEmpty &&

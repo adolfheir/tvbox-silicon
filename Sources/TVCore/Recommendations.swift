@@ -4,6 +4,10 @@ import Observation
 public struct PosterResource: Hashable, Sendable {
     public let url: URL
     public let headers: [String: String]
+    public static func artworkScope(_ url: URL) -> String { "artwork:" + url.absoluteString }
+    public var cacheKey: String {
+        url.absoluteString + headers.sorted { $0.key < $1.key }.map { "\n\($0.key.lowercased()):\($0.value)" }.joined()
+    }
     public init(url: URL, headers: [String: String] = [:]) { self.url = url; self.headers = headers }
     public init?(address: String, origin: URL) {
         // TVBox appends transport headers to artwork URLs. Do not send that suffix as part of the URL.

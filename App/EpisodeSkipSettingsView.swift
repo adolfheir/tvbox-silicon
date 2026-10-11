@@ -27,7 +27,7 @@ struct EpisodeSkipSettingsView: View {
                 Section {
                     Toggle(L10n.text("Automatically skip intro and outro"), isOn: $enabled)
                         .accessibilityIdentifier("player.skip.enabled")
-                    Text(L10n.text("Applies to all films. The outro is remembered as time remaining."))
+                    Text(L10n.text("Times apply to this series and all its episodes. Automatic skipping is a global switch. The outro is remembered as time remaining."))
                         .font(.footnote).foregroundStyle(.secondary)
                 }
                 Section(L10n.text("Intro ends at")) {

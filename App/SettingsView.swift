@@ -229,6 +229,7 @@ struct SettingsView: View {
                 .padding(14)
             }
             SettingsGroup(title: L10n.text("Advanced")) {
+                SettingsLinkRow(symbol: "internaldrive", tint: .blue, title: L10n.text("Local Cache")) { CacheSettingsView() }
                 SettingsLinkRow(symbol: "cpu.fill", tint: .orange, title: L10n.text("JAR Runtime and Compatibility")) { RuntimeView() }
                 SettingsLinkRow(symbol: "doc.text.magnifyingglass", tint: .gray, title: L10n.text("Diagnostic Logs")) { DiagnosticsView() }
             }

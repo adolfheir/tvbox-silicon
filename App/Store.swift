@@ -7,6 +7,7 @@ import TVCore
     let recommendationModel = RecommendationModel()
     let playbackHistory: PlaybackHistory
     let playbackDefaults: UserDefaults
+    let pinnedSources: PinnedSources
     var resumingHistoryID: String?
     var subscription: Subscription?
     var subscriptionAddress: String
@@ -39,11 +40,12 @@ import TVCore
         playbackDefaults = defaults.bool(forKey: "qaIsolatedData")
             ? UserDefaults(suiteName: "com.tvbox.yingxia.qa.player") ?? defaults : defaults
         playbackHistory = defaults.bool(forKey: "qaIsolatedData")
-            ? PlaybackHistory(file: URL.cachesDirectory.appending(path: "qa-player-history.json")) : .shared
+            ? PlaybackHistory(file: URL.cachesDirectory.appending(path: "qa-player-history.json"), defaults: playbackDefaults) : .shared
         #else
         playbackDefaults = defaults
         playbackHistory = .shared
         #endif
+        pinnedSources = PinnedSources(defaults: playbackDefaults)
         autoPlayNext = defaults.object(forKey: "autoPlayNextEpisode") == nil || defaults.bool(forKey: "autoPlayNextEpisode")
         subscriptionAddress = defaults.string(forKey: "subscriptionAddress") ?? Self.defaultURL
         let cached = (try? Data(contentsOf: Self.subscriptionFile)) ?? defaults.data(forKey: "subscription")
@@ -116,9 +118,16 @@ import TVCore
     }
     func isFavorite(_ channel: Channel) -> Bool { favorites.contains { $0.id == channel.id } }
 
+    func orderedSites(_ config: Subscription) -> [Site] {
+        pinnedSources.arrange(SourceStrategy.arrange(config.sites) { !$0.hidden && $0.canBrowse(jarURL: config.spiderURL) }, origin: config.origin)
+    }
+
     func catalogChannel(_ resolved: Channel, video: Video, episode: Episode, client: CatalogClient,
                         resumePosition: Double? = nil) -> Channel {
         let context = PlaybackHistoryContext(origin: client.origin, site: client.site, video: video, episode: episode)
+        if let data = try? JSONEncoder().encode(video) {
+            MediaCache.shared.store(data, for: "detail", kind: .catalog, scope: context.id, ttl: 6 * 3600, ticket: MediaCache.shared.ticket())
+        }
         playbackCatalog = PlaybackCatalog(video: video, client: client.with(parses: subscription?.parseServices ?? client.parses), scope: context.id)
         return Channel(name: "\(video.name) · \(episode.name)", group: resolved.group, url: resolved.url,
                        logo: resolved.logo, headers: resolved.headers, skipScope: context.id,
@@ -172,11 +181,21 @@ import TVCore
         defer { resumingHistoryID = nil }
         do {
             let client = CatalogClient(site: site, origin: config.origin, jarURL: config.spiderURL).with(parses: config.parseServices)
-            let video = try await client.detail(entry.context.videoID)
-            guard let episode = entry.context.episode(in: video.episodes) else {
+            // Plugin/API sources resolve an episode again. Direct-file APIs must refresh
+            // their detail first so an expiring media address never becomes a resume shortcut.
+            var video = try await client.detail(entry.context.videoID, cached: site.type == 3 || site.type == 4)
+            guard var episode = entry.context.episode(in: video.episodes) else {
                 throw TVError.unsupported(L10n.text("The saved episode is no longer available from this source. Choose an episode again."))
             }
-            let channel = try await client.playback(episode)
+            let channel: Channel
+            do { channel = try await client.playback(episode) }
+            catch {
+                try Task.checkCancellation()
+                video = try await client.detail(entry.context.videoID)
+                guard let refreshed = entry.context.episode(in: video.episodes) else { throw error }
+                episode = refreshed
+                channel = try await client.playback(refreshed)
+            }
             guard !Task.isCancelled, playing == previousPlayback, subscription?.origin == config.origin else { return }
             playing = catalogChannel(channel, video: video, episode: episode, client: client, resumePosition: entry.resumePosition)
         } catch {

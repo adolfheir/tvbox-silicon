@@ -7,6 +7,10 @@ SIMULATOR_ID="${1:?Usage: Scripts/test-playback-ui.sh <iPad simulator UUID>}"
 shift
 OUT=build/PlaybackUI
 mkdir -p "$OUT"
+# A simulator can reuse a stale XCTest runner after an incremental rebuild.
+# Its own bundle contains no app history or subscription data.
+xcrun simctl terminate "$SIMULATOR_ID" com.tvbox.yingxia.qa.playback-tests.xctrunner 2>/dev/null || true
+xcrun simctl uninstall "$SIMULATOR_ID" com.tvbox.yingxia.qa.playback-tests.xctrunner 2>/dev/null || true
 if lsof -tiTCP:8776 -sTCP:LISTEN >/dev/null; then
   echo 'Port 8776 is occupied; stop the previous QA server first.' >&2
   exit 1

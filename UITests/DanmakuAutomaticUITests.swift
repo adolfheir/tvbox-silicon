@@ -7,6 +7,7 @@ final class DanmakuAutomaticUITests: XCTestCase {
         let common = ["-qaSection", "history", "-qaPage", "play-source:qa-standard",
                       "-qaSubscription", "http://127.0.0.1:8776/config.json", "-qaPlayerControls", "1",
                       "-qaPlaybackProbe", "1", "-qaMute", "1", "-qaLegacyUI", "1",
+                      "-danmakuOfficialLookup", "0", "-qaResetCache", "1",
                       "-danmakuAutoMatch", "1", "-danmakuEnabled", "1", "-AppleLanguages", "(zh-Hans)"]
         app.launchArguments = common + ["-danmakuServer", "http://127.0.0.1:8776"]
         app.launch()

@@ -31,8 +31,12 @@ import UniformTypeIdentifiers
     }
     private var generation = UUID()
     private var automaticTask: Task<Void, Never>?
+    private var prefetchTask: Task<Void, Never>?
     private var automaticContext: PlaybackHistoryContext?
     private(set) var automaticState = "idle"
+    private(set) var source = ""
+    private(set) var fromCache = false
+    var context: PlaybackHistoryContext? { automaticContext }
 
     func startAutomatic(_ context: PlaybackHistoryContext?) {
         cancelAutomatic()
@@ -44,26 +48,17 @@ import UniformTypeIdentifiers
             guard let self else { return }
             defer { if self.generation == active { self.automaticTask = nil } }
             do {
-                let client = try DanmakuClient(address: UserDefaults.standard.string(forKey: "danmakuServer") ?? DanmakuClient.defaultServer)
-                let results = try await client.search(context.videoName)
-                try Task.checkCancellation()
-                guard self.generation == active else { return }
-                guard let anime = DanmakuMatcher.anime(title: context.videoName, in: results) else {
-                    self.automaticState = "unmatched"; return
-                }
-                let episodes = try await client.episodes(anime)
-                try Task.checkCancellation()
-                guard self.generation == active else { return }
-                guard let episode = DanmakuMatcher.episode(name: context.episodeName, in: episodes) else {
-                    self.automaticState = "unmatched"; return
-                }
-                let comments = try await client.comments(episode)
+                let defaults = UserDefaults.standard
+                let resolver = DanmakuResolver(dandanServer: defaults.string(forKey: "danmakuServer") ?? DanmakuClient.defaultServer,
+                    dmkuServer: URL(string: defaults.string(forKey: "danmakuDmkuServer") ?? "https://dmku.hls.one/") ?? URL(string: "https://dmku.hls.one/")!,
+                    officialLookup: defaults.object(forKey: "danmakuOfficialLookup") == nil || defaults.bool(forKey: "danmakuOfficialLookup"))
+                let result = try await resolver.resolve(context)
                 try Task.checkCancellation()
                 guard self.generation == active, self.enabled, self.automatic else { return }
-                self.comments = comments
-                self.track = comments.isEmpty ? "" : anime.title + " · " + episode.title
+                self.comments = result.comments
+                self.track = result.track; self.source = result.source; self.fromCache = result.cached
                 self.offset = 0; self.revision = UUID()
-                self.automaticState = comments.isEmpty ? "unmatched" : "loaded"
+                self.automaticState = result.state
             } catch {
                 guard self.generation == active else { return }
                 // Optional overlay failures never interrupt video playback or show alerts.
@@ -73,22 +68,56 @@ import UniformTypeIdentifiers
     }
 
     private func cancelAutomatic() {
-        generation = UUID(); automaticTask?.cancel(); automaticTask = nil; automaticState = "idle"
+        generation = UUID(); automaticTask?.cancel(); automaticTask = nil; prefetchTask?.cancel(); prefetchTask = nil; automaticState = "idle"
     }
 
-    func load(_ episode: DanmakuEpisode, anime: DanmakuAnime, client: DanmakuClient) async throws {
-        cancelAutomatic(); automaticContext = nil
+    func prefetch(_ context: PlaybackHistoryContext?) {
+        prefetchTask?.cancel()
+        guard let context, automatic, enabled else { return }
+        let active = generation
+        let ticket = MediaCache.shared.ticket()
+        prefetchTask = Task { [weak self] in
+            guard let self else { return }
+            await self.automaticTask?.value
+            guard !Task.isCancelled, self.generation == active, !self.comments.isEmpty else { return }
+            try? await Task.sleep(for: .seconds(3))
+            guard !Task.isCancelled, self.generation == active else { return }
+            let defaults = UserDefaults.standard
+            let resolver = DanmakuResolver(dandanServer: defaults.string(forKey: "danmakuServer") ?? DanmakuClient.defaultServer,
+                dmkuServer: URL(string: defaults.string(forKey: "danmakuDmkuServer") ?? "https://dmku.hls.one/") ?? URL(string: "https://dmku.hls.one/")!,
+                officialLookup: defaults.object(forKey: "danmakuOfficialLookup") == nil || defaults.bool(forKey: "danmakuOfficialLookup"))
+            _ = try? await resolver.resolve(context, ticket: ticket)
+        }
+    }
+    func retryAutomatic() {
+        let context = automaticContext
+        if let context { MediaCache.shared.remove(DanmakuResolver.episodeKey(context), kind: .danmaku, scope: context.id) }
+        clear(); startAutomatic(context)
+    }
+
+    func load(_ episode: DanmakuEpisode, anime: DanmakuAnime, client: DanmakuClient, siblings: [DanmakuEpisode] = []) async throws {
+        cancelAutomatic()
+        let ticket = MediaCache.shared.ticket()
         let active = UUID(); generation = active
         let comments = try await client.comments(episode)
         try Task.checkCancellation()
         guard generation == active else { throw CancellationError() }
         self.comments = comments; track = anime.title + " · " + episode.title
+        source = "Dandanplay"; fromCache = false; cacheCurrent(ticket: ticket)
+        if let context = automaticContext, !siblings.isEmpty {
+            DanmakuResolver(dandanServer: client.server.absoluteString).remember(
+                DanmakuMapping(provider: "dandan", title: context.videoName, year: context.year,
+                    tracks: siblings.map { DanmakuTrack(number: DanmakuMatcher.episodeNumber($0.title), title: $0.title, id: $0.id) }),
+                for: context, ticket: ticket)
+        }
         offset = 0; revision = UUID(); enabled = true
     }
 
-    func clear() {
-        cancelAutomatic(); automaticContext = nil
-        comments = []; track = ""; offset = 0; time = 0; revision = UUID()
+    func clear(keepingContext: Bool = false) {
+        cancelAutomatic()
+        if !keepingContext { automaticContext = nil }
+        else if let context = automaticContext { MediaCache.shared.remove(DanmakuResolver.episodeKey(context), kind: .danmaku, scope: context.id) }
+        comments = []; track = ""; source = ""; fromCache = false; offset = 0; time = 0; revision = UUID()
     }
 
     func importFile(_ url: URL) throws {
@@ -97,9 +126,16 @@ import UniformTypeIdentifiers
         let size = try url.resourceValues(forKeys: [.fileSizeKey]).fileSize ?? 0
         guard size <= DanmakuParser.maximumBytes else { throw TVError.unsupported(L10n.text("The danmaku file is too large.")) }
         let parsed = try DanmakuParser.parse(Data(contentsOf: url, options: .mappedIfSafe))
-        cancelAutomatic(); automaticContext = nil
+        cancelAutomatic()
         comments = parsed; track = url.deletingPathExtension().lastPathComponent
+        source = L10n.text("Imported file"); fromCache = false; cacheCurrent()
         offset = 0; revision = UUID(); enabled = true
+    }
+    private func cacheCurrent(ticket: MediaCache.Ticket? = nil) {
+        guard let context = automaticContext, !comments.isEmpty,
+              let data = try? JSONEncoder().encode(AutomaticDanmakuResult(comments: comments, track: track, source: source, state: "loaded")) else { return }
+        MediaCache.shared.store(data, for: DanmakuResolver.episodeKey(context), kind: .danmaku, scope: context.id,
+            ttl: 7 * 86400, ticket: ticket ?? MediaCache.shared.ticket())
     }
 }
 
@@ -162,6 +198,7 @@ struct DanmakuSettingsView: View {
     let channelName: String
     @Environment(\.dismiss) private var dismiss
     @AppStorage("danmakuServer") private var server = DanmakuClient.defaultServer
+    @AppStorage("danmakuOfficialLookup") private var officialLookup = true
     @State private var keyword = ""
     @State private var animes: [DanmakuAnime] = []
     @State private var episodes: [DanmakuEpisode] = []
@@ -182,8 +219,11 @@ struct DanmakuSettingsView: View {
                         .accessibilityIdentifier("danmaku.automatic")
                     Text(L10n.text("Matching comments appear automatically. If none match or the service is unavailable, the video stays clear."))
                         .font(.caption).foregroundStyle(.secondary)
+                    Text(status).font(.caption).foregroundStyle(.secondary).accessibilityIdentifier("danmaku.status")
+                    Button(L10n.text("Retry automatic matching")) { model.retryAutomatic() }.disabled(model.context == nil)
                     if !model.track.isEmpty {
                         Text(model.track).font(.subheadline)
+                        Text(model.source + (model.fromCache ? " · " + L10n.text("From local cache") : "")).font(.caption).foregroundStyle(.secondary)
                         Text(L10n.text("Loaded %lld comments", model.comments.count)).foregroundStyle(.secondary)
                         HStack {
                             Text(L10n.text("Opacity"))
@@ -198,10 +238,13 @@ struct DanmakuSettingsView: View {
                         }
                         Text(L10n.text("A positive offset shows comments later. Playback controls stay available."))
                             .font(.caption).foregroundStyle(.secondary)
-                        Button(L10n.text("Clear Danmaku"), role: .destructive) { work?.cancel(); busy = false; model.clear() }
+                        Button(L10n.text("Clear Danmaku"), role: .destructive) { work?.cancel(); busy = false; model.clear(keepingContext: true) }
                     }
                 }
                 Section {
+                    Toggle(L10n.text("Find official episodes for dmku"), isOn: $officialLookup)
+                    Text(L10n.text("Automatically checks Dandanplay, iQIYI and Tencent Video. The first matching track with comments is used. Official public episode pages are sent to dmku; stream URLs and playback headers are never sent."))
+                        .font(.caption).foregroundStyle(.secondary)
                     HStack {
                         TextField(L10n.text("Video title"), text: $keyword).onSubmit { search() }.accessibilityIdentifier("danmaku.keyword")
                         Button(L10n.text("Search")) { search() }.disabled(busy || keyword.trimmingCharacters(in: .whitespaces).isEmpty).accessibilityIdentifier("danmaku.search")
@@ -258,6 +301,16 @@ struct DanmakuSettingsView: View {
         }
     }
 
+    private var status: String {
+        switch model.automaticState {
+        case "searching": L10n.text("Finding matching danmaku…")
+        case "loaded": L10n.text("Loaded %lld comments", model.comments.count)
+        case "unmatched": L10n.text("No matching episode has comments.")
+        case "unavailable": L10n.text("Danmaku services are temporarily unavailable. Video playback is unaffected.")
+        default: L10n.text("Automatic matching is idle.")
+        }
+    }
+
     private func perform(_ operation: @escaping @MainActor () async throws -> Void) {
         work?.cancel(); busy = true; error = nil
         work = Task { @MainActor in
@@ -287,7 +340,7 @@ struct DanmakuSettingsView: View {
     }
     private func load(_ episode: DanmakuEpisode, anime: DanmakuAnime) {
         let address = server
-        perform { try await model.load(episode, anime: anime, client: DanmakuClient(address: address)); dismiss() }
+        perform { try await model.load(episode, anime: anime, client: DanmakuClient(address: address), siblings: episodes); dismiss() }
     }
 }
 #endif

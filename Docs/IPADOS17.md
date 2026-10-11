@@ -4,6 +4,8 @@ This fork keeps Yingxia's native player and on-device plugin runtime, and lowers
 
 The integrated 1.0.2 release adds local playback history with fresh episode resolution and exact-position resuming. Build 5 verifies real-device history resuming; build 6 uses the same app source and adds physical-device JSON/XML Danmaku rendering and switch acceptance. Version 1.0.3 (10) adds unified iPhone/iPad touch controls, in-player episode selection and automatic next-episode playback, direct intro/outro confirmation marks, global skipping controls and a control lock with the unlock action on the right. Search results also offer selected-video media speed comparisons and sorting. It consolidates infrequent actions into More, uses system volume controls, keeps the foreground player awake and pauses immediately when inactive or backgrounded. See [FINAL-IPADOS17.md](FINAL-IPADOS17.md) for the combined feature set, package provenance and distinct acceptance boundaries.
 
+Version 1.0.4 (12) adds concurrent Dandanplay/dmku matching, native official episode-page lookup, per-series intro/outro times, pinned VOD sources and bounded disk caching. History titles receive cache priority; selective history deletion clears related content and skip times, while the latest 20 successful work-address mappings may remain. Global cache clearing preserves history and preferences. See [LIBRARY_CACHE.md](LIBRARY_CACHE.md) for cache policy and separate current acceptance evidence; earlier device results below are not reused as acceptance of this release.
+
 The default subscription is:
 
 ```text

@@ -41,7 +41,7 @@ import Testing
     let settings = EpisodeSkipSettings(enabled: true, introEnd: 90, outroLength: 120)
     settings.save(scope: scope, defaults: defaults)
     #expect(EpisodeSkipSettings.load(scope: scope, defaults: defaults) == settings)
-    #expect(EpisodeSkipSettings.load(scope: EpisodeSkipSettings.scope(origin: origin, source: "source", video: "series-2"), defaults: defaults) == EpisodeSkipSettings())
+    #expect(EpisodeSkipSettings.load(scope: EpisodeSkipSettings.scope(origin: origin, source: "source", video: "series-2"), defaults: defaults) == EpisodeSkipSettings(enabled: true))
     // The ending follows each episode's duration instead of retaining the first episode's absolute timestamp.
     var pass = EpisodeSkipPass()
     #expect(pass.target(time: 2880, duration: 3000, playing: true, settings: settings) == 2999.95)
@@ -49,7 +49,7 @@ import Testing
     #expect(try JSONDecoder().decode(Channel.self, from: legacy).skipScope == nil)
 }
 
-@Test func globalSkippingUsesTheSameDurationsAcrossFilmsWithoutOverwritingLegacySettings() throws {
+@Test func globalLegacyTimesAreNotCopiedToOtherSeriesAndTheSwitchIsShared() throws {
     let suite = "global-skip-tests." + UUID().uuidString
     let defaults = try #require(UserDefaults(suiteName: suite))
     defer { defaults.removePersistentDomain(forName: suite) }
@@ -61,6 +61,9 @@ import Testing
     let loaded = EpisodeSkipSettings.loadGlobal(defaults: defaults)
     #expect(loaded == settings)
     #expect(EpisodeSkipSettings.load(scope: "old-film", defaults: defaults) == legacy)
+    #expect(EpisodeSkipSettings.load(scope: "new-film", defaults: defaults) == EpisodeSkipSettings(enabled: true))
+    EpisodeSkipSettings(enabled: false, introEnd: 60, outroLength: 80).save(scope: "new-film", defaults: defaults)
+    #expect(EpisodeSkipSettings.load(scope: "old-film", defaults: defaults) == EpisodeSkipSettings(enabled: false, introEnd: 30))
     for duration in [2700.0, 3000.0] {
         var pass = EpisodeSkipPass()
         #expect(pass.target(time: 0, duration: duration, playing: true, settings: loaded) == 90)
